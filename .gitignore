@@ -77,3 +77,8 @@ local_settings.py
 # Other
 *.swp
 *.swo
+
+# Ros2 specific
+.build/
+install/
+log/
