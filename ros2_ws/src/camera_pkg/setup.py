@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'static_camera = camera_pkg.static_camera:main'
+            'static_camera = camera_pkg.static_camera:main',
+            'front_camera = camera_pkg.front_camera:main',
         ],
     },
 )

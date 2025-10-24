@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Nodo para la camara estatica
+Nodo para iniciar la camara estatica y publicar las imagenes que captura.
 """
 
 import rclpy
@@ -20,15 +20,15 @@ class StaticCameraNode(Node):
         self.publisher = self.create_publisher(Image, 'static_camera/image_raw', 10)
         
         try:
-            self.capture = cv2.VideoCapture(0, cv2.CAP_V4L2)  # Si se esta en el computador, esto es 0 para la camara del computador, 1 para la camara externa, si se esta en la raspi 0 es la camara correcta
+            self.capture = cv2.VideoCapture(2, cv2.CAP_V4L2)  # Ajustar indice segun la camara estatica, si esta en el USB 3 los indices son 2 y 3
         except Exception as e:
             self.get_logger().error(f'Error al abrir la camara: {e}')
-            self.capture = cv2.VideoCapture(0)  
+            # self.capture = cv2.VideoCapture(0)  
             
         self.bridge = CvBridge()
 
         sleep(2)  # Esperar a que la camara se inicialice
-        self.get_logger().info('Static Camera Node ha sido iniciado')
+        self.get_logger().info('[Static Camera Node]: ha sido iniciado')
         self.timer = self.create_timer(0.1, self.show_capture_callback)  # Publicar cada 0.1 segundos
 
     def show_capture_callback(self):
