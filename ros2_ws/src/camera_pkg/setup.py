@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='joseq',
     maintainer_email='joseq@todo.todo',
-    description='TODO: Package description',
+    description='Camera package',
     license='TODO: License declaration',
     extras_require={
         'test': [
@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'static_camera = camera_pkg.static_camera:main'
         ],
     },
 )
