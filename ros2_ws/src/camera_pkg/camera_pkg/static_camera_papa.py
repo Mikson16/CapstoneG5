@@ -27,7 +27,7 @@ class StaticCameraPapaNode(Node):
         self.stop_event = Event()
 
         # Crear suscriptor al mensaje de la camara estatica
-        self.subscription = self.create_subscription(Image, {'static_camera/image_raw'}, self.queue_papa_callback, 10)
+        self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_papa_callback, 10)
         self.get_logger().info('[Static Camera Papa Node]: Suscriptor creado')
 
         # Bridge
@@ -53,11 +53,43 @@ class StaticCameraPapaNode(Node):
             self.img_q.put_nowait(cv2_image)
         except:
             self.get_logger().warning('[Static Camera Papa Node]: La cola de imagenes esta llena, se descarta la imagen actual')
+    
     def processing_loop(self):
         """
         Hilo que procesa las imagenes de la cola para detectar la bolsa de papa
         """
         self.get_logger().info('[Static Camera Papa Node]: Hilo de procesamiento en ejecucion')
+
+        while not self.stop_event.is_set():
+                
+            # Obtener la imagen de la cola
+            try:
+                frame = self.img_q.get_nowait()
+                # Pasar la imagen al espacio de color HSV
+                frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
+
+                # Definir rangos de color para detectar la bolsa de papa (amarillo)
+                lower_yellow = np.array([20, 100, 100])
+                upper_yellow = np.array([30, 255, 255]) #H, S, V
+
+                # Mascara
+                mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow) # imagen, rango bajo, rango alto
+
+                # Aplicar la mascara a la imagen original
+                result = cv2.bitwise_and(frame, frame, mask=mask)
+
+                # Mostrar imagen para testeo
+                cv2.imshow('Static Camera Papa Detection', result)
+                cv2.waitKey(1)
+
+            except Empty:
+                frame = None
+                # self.get_logger().info('[Static Camera Papa Node]: La cola de imagenes esta vacia, esperando nueva imagen')
+                # Al parecer la cola avanza muy rapido y este mensaje satura la terminal, lo comentare mientras tanto
+
+        
+
+
         
         
 

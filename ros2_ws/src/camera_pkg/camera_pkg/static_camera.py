@@ -20,7 +20,7 @@ class StaticCameraNode(Node):
         self.publisher = self.create_publisher(Image, 'static_camera/image_raw', 10)
         
         try:
-            self.capture = cv2.VideoCapture(2, cv2.CAP_V4L2)  # Ajustar indice segun la camara estatica, si esta en el USB 3 los indices son 2 y 3
+            self.capture = cv2.VideoCapture(0, cv2.CAP_V4L2)  # Ajustar indice segun la camara estatica, si esta en el USB 3 los indices son 2 y 3
         except Exception as e:
             self.get_logger().error(f'Error al abrir la camara: {e}')
             # self.capture = cv2.VideoCapture(0)  
