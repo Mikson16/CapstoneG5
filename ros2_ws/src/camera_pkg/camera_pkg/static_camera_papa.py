@@ -72,8 +72,19 @@ class StaticCameraPapaNode(Node):
                 lower_yellow = np.array([20, 100, 100])
                 upper_yellow = np.array([30, 255, 255]) #H, S, V
 
+                #Rojo
+                lower_red = np.array([0, 100, 100])
+                upper_red = np.array([1, 255, 255])
+
+                lower_red_2 = np.array([160, 100, 100])
+                upper_red_2 = np.array([179, 255, 255])
+
                 # Mascara
-                mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow) # imagen, rango bajo, rango alto
+                mask_1 = cv2.inRange(frame_hsv, lower_red, upper_red) # imagen, rango bajo, rango alto
+                mask_2 = cv2.inRange(frame_hsv, lower_red_2, upper_red_2)
+
+                mask = cv2.bitwise_or(mask_1, mask_2)
+
 
                 # Aplicar la mascara a la imagen original
                 result = cv2.bitwise_and(frame, frame, mask=mask)
