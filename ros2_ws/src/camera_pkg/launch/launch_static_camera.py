@@ -1,0 +1,24 @@
+from launch import LaunchDescription
+from launch_ros.actions import Node
+
+def generate_launch_description():
+    return LaunchDescription([
+        # Nodo que levanta la camara estatica
+        Node(
+            package='camera_pkg',
+            executable='static_camera', 
+            name='static_camera_node',
+            output='screen',
+            emulate_tty=True,
+            parameters=[{'headless': False}] # Cambiar a True para no desplegar las ventanas
+        ),
+
+        # Nodo de procesamiento de la imagen
+        Node(
+            package='camera_pkg',
+            executable='static_camera_papa',
+            name='static_camera_papa_node',
+            output='screen',
+            emulate_tty=True,
+        ),
+    ])

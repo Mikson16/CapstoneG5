@@ -10,6 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        #instalar launch files para que ros2 los encuentre
+        ('share/' + package_name + '/launch', ['launch/launch_static_camera.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

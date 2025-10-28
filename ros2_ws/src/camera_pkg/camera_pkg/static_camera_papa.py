@@ -68,9 +68,9 @@ class StaticCameraPapaNode(Node):
                 # Pasar la imagen al espacio de color HSV
                 frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
 
-                # Definir rangos de color para detectar la bolsa de papa (amarillo)
-                lower_yellow = np.array([20, 100, 100])
-                upper_yellow = np.array([30, 255, 255]) #H, S, V
+                # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacino del lab
+                lower_yellow = np.array([30, 50, 80])
+                upper_yellow = np.array([65, 255, 255]) #H, S, V
 
                 #Rojo
                 lower_red = np.array([0, 100, 100])
@@ -79,15 +79,18 @@ class StaticCameraPapaNode(Node):
                 lower_red_2 = np.array([160, 100, 100])
                 upper_red_2 = np.array([179, 255, 255])
 
-                # Mascara
+                # Mascara Roja
                 mask_1 = cv2.inRange(frame_hsv, lower_red, upper_red) # imagen, rango bajo, rango alto
                 mask_2 = cv2.inRange(frame_hsv, lower_red_2, upper_red_2)
 
                 mask = cv2.bitwise_or(mask_1, mask_2)
 
+                # Mascara amarilla
+                yellow_mask = cv2.inRange(frame_hsv, lower_yellow, upper_yellow)
+
 
                 # Aplicar la mascara a la imagen original
-                result = cv2.bitwise_and(frame, frame, mask=mask)
+                result = cv2.bitwise_and(frame, frame, mask=yellow_mask)
 
                 # Mostrar imagen para testeo
                 cv2.imshow('Static Camera Papa Detection', result)
