@@ -56,7 +56,7 @@ class StaticCameraPapaNode(Node):
     
     def processing_loop(self):
         """
-        Hilo que procesa las imagenes de la cola para detectar la bolsa de papa
+        Hilo que procesa las imagenes de la cola para detectar la bolsa de papa y ubicar las coordenadas de su centro
         """
         self.get_logger().info('[Static Camera Papa Node]: Hilo de procesamiento en ejecucion')
 
@@ -91,10 +91,11 @@ class StaticCameraPapaNode(Node):
 
                 # Aplicar la mascara a la imagen original
                 result = cv2.bitwise_and(frame, frame, mask=yellow_mask)
+                self.find_center_papa(yellow_mask)
 
                 # Mostrar imagen para testeo
-                cv2.imshow('Static Camera Papa Detection', result)
-                cv2.waitKey(1)
+                # cv2.imshow('Static Camera Papa Detection', result)
+                # cv2.waitKey(1)
 
             except Empty:
                 frame = None
@@ -102,7 +103,38 @@ class StaticCameraPapaNode(Node):
                 # Al parecer la cola avanza muy rapido y este mensaje satura la terminal, lo comentare mientras tanto
 
         
+    def find_center_papa(self, mask):
+        """
+        Encuentra el tramo promedio y retorna la posicion horizontal donde se encuentra el mayor promedio de pixeles que cumplen el objetivo
+        """
+        # La mascara ya es binaria, por lo cual la recibo
+        N, M = mask.shape
 
+        length_list = []
+        mean_list = []
+
+        for fil in range(N):
+            col = mask[fil, : ] # para una fila tomo todas las columnas
+            white_pixels = np.where(col == 255)[0]
+
+            first_pixel = white_pixels[0]
+            last_pixel = white_pixels[-1]
+
+            length = int(np.abs(first_pixel - last_pixel))
+            mean = (first_pixel + last_pixel) / 2
+
+            if length > 0:
+                length_list.append(length)
+                mean_list.append(mean)
+        
+        mean_list = np.array(mean_list)
+        length_list = np.array(length_list)
+        meam_length = np.mean(length_list)
+
+            
+
+        cv2.imshow('Static Camera Papa Detection Gray Scale', mask)
+        cv2.waitKey(1)
 
         
         
