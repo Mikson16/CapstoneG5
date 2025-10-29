@@ -91,11 +91,11 @@ class StaticCameraPapaNode(Node):
 
                 # Aplicar la mascara a la imagen original
                 result = cv2.bitwise_and(frame, frame, mask=yellow_mask)
-                self.find_center_papa(yellow_mask)
+                # self.find_center_papa(yellow_mask)
 
                 # Mostrar imagen para testeo
-                # cv2.imshow('Static Camera Papa Detection', result)
-                # cv2.waitKey(1)
+                cv2.imshow('Static Camera Papa Detection', result)
+                cv2.waitKey(1)
 
             except Empty:
                 frame = None
@@ -133,8 +133,8 @@ class StaticCameraPapaNode(Node):
 
             
 
-        cv2.imshow('Static Camera Papa Detection Gray Scale', mask)
-        cv2.waitKey(1)
+        # cv2.imshow('Static Camera Papa Detection Gray Scale', mask)
+        # cv2.waitKey(1)
 
         
         
