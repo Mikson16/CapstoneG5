@@ -23,6 +23,7 @@ class ArduinoComNode(Node):
         self.timeout = timeout
 
         self.port = port 
+ 
 
         if self.port == None:
             self.get_logger().fatal('No se determino puerto serial, Especifica port=/dev/ttyUSB0')
@@ -30,7 +31,9 @@ class ArduinoComNode(Node):
         
         self.get_logger().info(f'Abriendo puerto serial {self.port} @ {self.baudrate}')
         try:
-            self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+            self.ser = serial.Serial(self.port, self.baudrate)
+            self.get_logger().info(f"[ARDUINO-COM]: Creacion elemento serial")
+
             # tiempo para darle a arduino
             time.sleep(2.0)
         except Exception as e:
@@ -38,7 +41,10 @@ class ArduinoComNode(Node):
 
         self._stop_event = Event()
 
-        self.send_serial_msg()
+        # Usando un timer
+        self.timer = self.create_timer(1.0, self.send_serial_msg)   
+        # self.send_serial_msg()
+
 
     def send_serial_msg(self):
         # pedir el mensaje por consola
