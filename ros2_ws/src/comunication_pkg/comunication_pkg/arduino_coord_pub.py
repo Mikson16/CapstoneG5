@@ -18,7 +18,10 @@ class ArduinoCoordPubNode(Node):
         # Publicadores y Subscriptores
 
         self.pub = self.create_publisher(String, 'arduino/command/coord', 10)
-        self.get_coord()
+
+
+        self.input_thread =  Thread(target=self.get_coord, daemon=True)
+        self.input_thread.start()
     
     
     def get_coord(self):
@@ -26,9 +29,15 @@ class ArduinoCoordPubNode(Node):
         De momento pide un input para mandar por consola una coordenada
         """ 
 
-        while True:
-            msg = str(input("Escribe un mensaje"))
-            self.pub.publish(msg)
+        while rclpy.ok():
+            msg = str(input("Escribe una coordenada: "))
+            self.pub.publish(String(data=msg))
+
+            #!TODO Nota para el yo de mañana que cansado se olvidara de lo que hizo
+            """
+            Recibir los mensajes por el input de consola es un cacho, seria mejor que para una demostracion, hacer una rutina de coordenadas en una lista y recorrerla mientras se envian, ambos nodos deberian funcionar a traves de un run nodo y no con el launch
+            """
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -20,6 +20,8 @@ class ArduinoComNode(Node):
     # agregar subscriptores y publicadores cuando sea necesario
         self.create_subscription(String, 'arduino/command/coord', self.coord_command_callback, 10) # esta suscripcion debe recibir un mensaje de las coordenadas a traves del topico 
 
+        # Atributo de mensaje
+        self.msg = None
         self.baudrate = baudrate
         self.timeout = timeout
 
@@ -50,15 +52,21 @@ class ArduinoComNode(Node):
         # self.send_serial_msg()
 
 
-    def send_serial_msg(self, msg_data):
+    def send_serial_msg(self):
         # pedir el mensaje por consola
         while not self._stop_event.is_set():
+            if self.msg is None:
+                time.sleep(0.1)
+                continue
+
             try:
                 self.get_logger().info('Mandar mensaje serial')
                 # msg = str(input(f'Escribe un mensaje para mandar al arduino: ')) +'\n'
+                data = str(self.msg) + '\n'
 
                 try: 
-                    self.ser.write(msg_data.encode('utf-8'))
+                    self.ser.write(self.msg.encode('utf-8'))
+                    self.msg = None # Para resetear y evitar que publique el mismo mensaje varias veces
                 except Exception as e:
                     self.get_logger().error(f'[ARDUINO-COM]: Error escribiendo al serial: {e}')
                 
@@ -68,24 +76,26 @@ class ArduinoComNode(Node):
 
     def coord_command_callback(self, msg):
         self.get_logger().info(f'Coordenadas recibidas: {msg.data}, mandando por serial')
-        self.send_serial_msg(msg.data)
+        self.msg = msg.data
 
     def destroy_threads(self):
         """
         Destruir todos los hilos antes de destruir el nodo
         """
         self.get_logger().info('[ARDUINO-COM]: Deteniendo hilos de procesamiento')
-        self.stop_event.set()
-        self.processing_thread.join()
+        # Señalar al hilo que debe detenerse
+        self._stop_event.set()
+        # Esperar a que termine el hilo de publicación serial si existe
         try:
-            cv2.destroyAllWindows()
-        except:
-            pass
+            if hasattr(self, 'serial_pub_thread') and self.serial_pub_thread.is_alive():
+                self.serial_pub_thread.join(timeout=2.0)
+        except Exception as e:
+            self.get_logger().error(f'[ARDUINO-COM]: Error al unir hilo: {e}')
         self.get_logger().info('[ARDUINO-COM]: Hilos detenidos')
 
 def main(args=None):
     rclpy.init(args=args)
-    arduino_com_node = ArduinoComNode(port='/dev/ttyACM0')
+    arduino_com_node = ArduinoComNode(port='/dev/ttyAMA0')# En caso de testear ocn arduino uno es /dev/ttyAMA0, con arduino mega /dev/ttyACM0
     # arduino_com_node.port('/dev/ttyACM0')
     rclpy.spin(arduino_com_node)
     arduino_com_node.destroy_threads()
