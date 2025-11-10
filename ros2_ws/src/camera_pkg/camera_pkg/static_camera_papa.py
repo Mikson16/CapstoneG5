@@ -72,21 +72,21 @@ class StaticCameraPapaNode(Node):
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV) 
 
                 # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacino del lab
-                lower_yellow = np.array([30, 50, 80])
+                lower_yellow = np.array([30, 100, 100])
                 upper_yellow = np.array([65, 255, 255]) #H, S, V
 
                 #Rojo
-                lower_red = np.array([0, 100, 100])
-                upper_red = np.array([1, 255, 255])
+                # lower_red = np.array([0, 100, 100])
+                # upper_red = np.array([1, 255, 255])
 
-                lower_red_2 = np.array([160, 100, 100])
-                upper_red_2 = np.array([179, 255, 255])
+                # lower_red_2 = np.array([160, 100, 100])
+                # upper_red_2 = np.array([179, 255, 255])
 
-                # Mascara Roja
-                mask_1 = cv.inRange(frame_hsv, lower_red, upper_red) # imagen, rango bajo, rango alto
-                mask_2 = cv.inRange(frame_hsv, lower_red_2, upper_red_2)
+                # # Mascara Roja
+                # mask_1 = cv.inRange(frame_hsv, lower_red, upper_red) # imagen, rango bajo, rango alto
+                # mask_2 = cv.inRange(frame_hsv, lower_red_2, upper_red_2)
 
-                mask = cv.bitwise_or(mask_1, mask_2)
+                # mask = cv.bitwise_or(mask_1, mask_2)
 
                 # Mascara amarilla
                 yellow_mask = cv.inRange(frame_hsv, lower_yellow, upper_yellow)
@@ -114,29 +114,38 @@ class StaticCameraPapaNode(Node):
         # La mascara ya es binaria, por lo cual la recibo
         ### Metodo nuevo con funciones de opencv
         try:
-            copy_mask = mask.copy()
-            contours, hierarchy = cv.findContours(copy_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
+            copy_mask = mask.copy() 
+
+            # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
+            kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+            closed = cv.morphologyEx(copy_mask, cv.MORPH_CLOSE, kernel)
+
+            contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
             largest = max(contours, key=cv.contourArea)
-            print(largest)
+            # print(largest)
             # if largest.all() == None:
             #     return None
+            # for ct in contours:
             area = cv.contourArea(largest)
-            for ct in contours:
-                if area < 500:
-                    continue
+            if area < 600:
+                return None, None
 
-                x, y, w, h = cv.boundingRect(cnt) # rectangulo
-                momento = cv.moments(ct)
-                if momento['m00'] != 0:
-                    cx = int(M['m10']/M['m00'])
-                    cy = int(M['m01']/M['m00'])
+            x, y, w, h = cv.boundingRect(largest) # rectangulo
+            momento = cv.moments(largest)
+            if momento['m00'] != 0:
+                cx = int(momento['m10']/momento['m00'])
+                cy = int(momento['m01']/momento['m00'])
 
-                cv.drawContours(self.result, [ct], -1, (0,255,0), 2)
-                cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
+            cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
+            cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
+
+
             cv.imshow('Find center Contorno', self.result)
             cv.waitKey(1)
         except Exception as e:
             self.get_logger().error(f"[Find center error]: {e}")
+            return False
         return True
         ## Testear y mejorar en laboratorio
             
