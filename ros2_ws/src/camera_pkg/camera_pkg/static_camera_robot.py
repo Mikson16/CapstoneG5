@@ -42,6 +42,9 @@ class StaticCameraRobotNode(Node):
         # Iniciar hilo de procesamiento
         self.processing_thread = Thread(target=self.processing_loop)
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
+        # self.red_thread = Thread(target=self.locate_object(None))
+        # self.blue_thread = Thread(target=self.locate_object(None))
+        # self.green_thread = Thread(target=self.locate_object(None))
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
 
 
@@ -92,34 +95,82 @@ class StaticCameraRobotNode(Node):
                 maskr_1 = cv.inRange(frame_hsv, lower_red, upper_red) 
                 maskr_2 = cv.inRange(frame_hsv, lower_red_2, upper_red_2)
 
-                red_mask = cv.bitwise_or(maskr_1, maskr_2)       
+                self.red_mask = cv.bitwise_or(maskr_1, maskr_2)       
 
                 # Azul
                 lower_blue = np.array([100,  70,  70])   # más amplio / suave
                 upper_blue = np.array([130, 255, 255])
 
-                blue_mask = cv.inRange(frame_hsv, lower_blue, upper_blue)
+                self.blue_mask = cv.inRange(frame_hsv, lower_blue, upper_blue)
 
                 # Verde
-                lower_green = np.array([40, 50, 50])
+                lower_green = np.array([45, 85, 85])
                 upper_green = np.array([85, 255, 255])
 
-                green_mask = cv.inRange(frame_hsv, lower_green, upper_green)
+                self.green_mask = cv.inRange(frame_hsv, lower_green, upper_green)
 
                 # Resultados
 
-                self.result_red = cv.bitwise_and(frame, frame, mask = red_mask)
-                self.result_blue = cv.bitwise_and(frame, frame, mask = blue_mask)
-                self.result_green = cv.bitwise_and(frame, frame, mask = green_mask)
+                self.result_red = cv.bitwise_and(frame, frame, mask = self.red_mask)
+                self.result_blue = cv.bitwise_and(frame, frame, mask = self.blue_mask)
+                self.result_green = cv.bitwise_and(frame, frame, mask = self.green_mask)
 
                 result = cv.bitwise_or(self.result_red, self.result_blue)
                 result = cv.bitwise_or(result, self.result_green)
 
-                cv.imshow('Static Camera Robot Detection', self.result_red)
+                cv.imshow('Static Camera Robot Detection', self.result_green)
+                cv.imshow('Rojo', self.result_red)
+                cv.imshow('Azul', self.result_blue)
                 cv.waitKey(1)
 
             except Empty:
                 frame = None
+
+
+    def locate_object(self, mask):
+        """
+        Debe calcular la posicion del objeto de la imagen segmentada
+        """
+        if mask is None:
+            # si la mascara es nula, idealmente cuando inicie el proceso, no debe hacer nada
+            return
+
+        ##
+        try:
+            copy_mask = mask.copy() 
+
+            # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
+            kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+            closed = cv.morphologyEx(copy_mask, cv.MORPH_CLOSE, kernel)
+
+            contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
+            largest = max(contours, key=cv.contourArea)
+            # print(largest)
+            # if largest.all() == None:
+            #     return None
+            # for ct in contours:
+            area = cv.contourArea(largest)
+            if area < 600:
+                return None, None
+
+            x, y, w, h = cv.boundingRect(largest) # rectangulo
+            momento = cv.moments(largest)
+            if momento['m00'] != 0:
+                cx = int(momento['m10']/momento['m00'])
+                cy = int(momento['m01']/momento['m00'])
+
+            # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
+            cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
+
+
+            cv.imshow('Find center Contorno', self.result)
+            cv.waitKey(1)
+        except Exception as e:
+            self.get_logger().error(f"[Find center error]: {e}")
+            return False
+        return cx, cy
+
 
 
     def destroy_threads(self):
