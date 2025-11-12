@@ -160,49 +160,6 @@ class StaticCameraPapaNode(Node):
             return False
         return cx, cy
         ## Testear y mejorar en laboratorio
-            
-        # ### Metodo anterior
-        # N, M = mask.shape
-
-        # length_list = []
-        # mean_list = []
-
-        # for fil in range(N):
-        #     col = mask[fil, : ] # para una fila tomo todas las columnas
-        #     white_pixels = np.where(col == 255)[0]
-        #     if white_pixels.size == 0: #caso donde no haya ningun blanco
-        #         continue 
-
-        #     first_pixel = white_pixels[0]
-        #     last_pixel = white_pixels[-1]
-
-        #     length = int(np.abs(first_pixel - last_pixel))
-        #     mean = (first_pixel + last_pixel) / 2
-
-        #     if length > 0:
-        #         length_list.append(length)
-        #         mean_list.append(mean)
-        
-        # mean_list = np.array(mean_list)
-        # length_list = np.array(length_list)
-        # meam_length = np.mean(length_list)
-
-        # standart_deviaton_length = np.std(length_list)
-
-        # mask_1 = length_list > meam_length + 2 *  standart_deviaton_length
-        # mask_2 = length_list > meam_length - 2 *  standart_deviaton_length
-
-        # mask = np.logical_and(mask_1, mask_2)
-
-        # filtered_means = np.array(mean_list[mask])
-
-        # mean_center = np.mean(filtered_means)
-
-        # return mean_center
-            
-
-        # cv2.imshow('Static Camera Papa Detection Gray Scale', mask)
-        # cv2.waitKey(1)
 
         
         
