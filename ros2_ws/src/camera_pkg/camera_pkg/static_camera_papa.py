@@ -8,6 +8,7 @@ Nodo que recibe la imagen de la camara estatica y la procesa para identificar do
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import Int16MultiArray
 import cv2 as cv
 from cv_bridge import CvBridge
 from threading import Thread
@@ -29,6 +30,9 @@ class StaticCameraPapaNode(Node):
         # Crear suscriptor al mensaje de la camara estatica
         self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_papa_callback, 10)
         self.get_logger().info('[Static Camera Papa Node]: Suscriptor creado')
+
+        # Crear publicador
+        self.publisher = self.create_publisher(Int16MultiArray, 'static_camera/papa_coord', 10) # Publica las coordenadas en formato int de 16 bits
 
         # atributo de resultado
         self.result = None
@@ -55,7 +59,7 @@ class StaticCameraPapaNode(Node):
         try:
             self.img_q.put_nowait(cv2_image)
         except:
-            self.get_logger().warning('[Static Camera Papa Node]: La cola de imagenes esta llena, se descarta la imagen actual')
+            self.get_logger().warning('La cola de imagenes esta llena, se descarta la imagen actual')
     
     def processing_loop(self):
         """
@@ -97,9 +101,17 @@ class StaticCameraPapaNode(Node):
                 center = self.find_center_papa(yellow_mask)
                 self.get_logger().info(f"El centro horizontal del objeto se encuentra en: {center}")
 
+                # Publicar el mensaje con lsa coordenadas del respectivo pixel del centro
+                try:
+                    cx, cy = center
+                    msg = Int16MultiArray()
+                    msg.data = [int(cx), int(cy)]
+                    self.publisher.publish(self.publisher.publish(msg))
+                except Exception as e:
+                    self.get_logger().warning(f"[Static camera papa publisher] No se ha detectado un objeto, no se publican coordenadas")
                 # Mostrar imagen para testeo
-                cv.imshow('Static Camera Papa Detection', self.result)
-                cv.waitKey(1)
+                # cv.imshow('Static Camera Papa Detection', self.result)
+                # cv.waitKey(1)
 
             except Empty:
                 frame = None
@@ -109,7 +121,7 @@ class StaticCameraPapaNode(Node):
         
     def find_center_papa(self, mask):
         """
-        Encuentra el tramo promedio y retorna la posicion horizontal donde se encuentra el mayor promedio de pixeles que cumplen el objetivo
+        Encuentra el el centro de masa del objeto (dibujo un rectangulo alrededor de el) y retorna las coordenadas dentro del frame, es decir de la matriz que corresponde a la imagen, de la bolsa de papas
         """
         # La mascara ya es binaria, por lo cual la recibo
         ### Metodo nuevo con funciones de opencv
@@ -136,7 +148,7 @@ class StaticCameraPapaNode(Node):
                 cx = int(momento['m10']/momento['m00'])
                 cy = int(momento['m01']/momento['m00'])
 
-            cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
+            # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
             cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
 
@@ -146,7 +158,7 @@ class StaticCameraPapaNode(Node):
         except Exception as e:
             self.get_logger().error(f"[Find center error]: {e}")
             return False
-        return True
+        return cx, cy
         ## Testear y mejorar en laboratorio
             
         # ### Metodo anterior
