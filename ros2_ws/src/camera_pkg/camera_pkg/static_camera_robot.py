@@ -112,10 +112,10 @@ class StaticCameraRobotNode(Node):
                 self.result_blue = cv.bitwise_and(frame, frame, mask = blue_mask)
                 self.result_green = cv.bitwise_and(frame, frame, mask = green_mask)
 
-                result = cv.bitwise_and(self.result_red, self.result_blue)
-                result = cv.bitwise_and(result, self.result_green)
+                result = cv.bitwise_or(self.result_red, self.result_blue)
+                result = cv.bitwise_or(result, self.result_green)
 
-                cv.imshow('Static Camera Robot Detection', self.result_blue)
+                cv.imshow('Static Camera Robot Detection', self.result_red)
                 cv.waitKey(1)
 
             except Empty:

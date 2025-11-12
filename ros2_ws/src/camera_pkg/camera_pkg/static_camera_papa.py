@@ -75,9 +75,10 @@ class StaticCameraPapaNode(Node):
                 # Pasar la imagen al espacio de color HSV
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV) 
 
-                # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacino del lab
-                lower_yellow = np.array([30, 100, 100])
-                upper_yellow = np.array([65, 255, 255]) #H, S, V
+                # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacion del lab
+
+                lower_yellow = np.array([25, 100, 100])
+                upper_yellow = np.array([60, 235, 235]) #H, S, V
 
                 #Rojo
                 # lower_red = np.array([0, 100, 100])
@@ -160,6 +161,7 @@ class StaticCameraPapaNode(Node):
             return False
         return cx, cy
         ## Testear y mejorar en laboratorio
+
 
         
         
