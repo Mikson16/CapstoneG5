@@ -5,6 +5,7 @@ Nodo que recibe la imagen de la camara estatica y la procesa para identificar do
 
 """
 
+from http.cookies import _quote
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -25,8 +26,10 @@ class StaticCameraRobotNode(Node):
         # Crear cola y elementos de ella
         self.img_q = Queue(maxsize=5) # cola fifo de tamano 5
         self.stop_event = Event()
-
-
+        # Colas para hilos de procesamiento por color
+        self.red_q = Queue(maxsize=2)
+        self.blue_q = Queue(maxsize=2)
+        self.green_q = Queue(maxsize=2)
         # Suscripcion
         self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_robot_callback, 10)
         self.get_logger().info('[Static Camera Robot Node]: Suscriptor creado')
@@ -38,13 +41,20 @@ class StaticCameraRobotNode(Node):
         self.result_red = None
         self.result_blue = None
         self.result_green = None
+        # Mask
+        self.red_mask = None
+        self.blue_mask = None
+        self.green_mask = None
 
         # Iniciar hilo de procesamiento
         self.processing_thread = Thread(target=self.processing_loop)
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
-        # self.red_thread = Thread(target=self.locate_object(None))
-        # self.blue_thread = Thread(target=self.locate_object(None))
-        # self.green_thread = Thread(target=self.locate_object(None))
+        self.red_thread = Thread(target=self.locate_object, args=(self.red_q,))
+        self.red_thread.start()
+        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q,))
+        self.blue_thread.start()
+        self.green_thread = Thread(target=self.locate_object, args=(self.green_q,))
+        self.green_thread.start()
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
 
 
@@ -115,8 +125,22 @@ class StaticCameraRobotNode(Node):
                 self.result_blue = cv.bitwise_and(frame, frame, mask = self.blue_mask)
                 self.result_green = cv.bitwise_and(frame, frame, mask = self.green_mask)
 
-                result = cv.bitwise_or(self.result_red, self.result_blue)
-                result = cv.bitwise_or(result, self.result_green)
+                # Invocar las funciones de localizacion para cada color
+                try:
+                    self.red_q.put_nowait((self.red_mask.copy(), self.result_red.copy()))
+                except:
+                    pass # Agregar logger en caso de necesitar debugueo
+                try:
+                    self.blue_q.put_nowait((self.blue_mask.copy(), self.result_blue.copy()))
+                except:
+                    pass # Agregar logger en caso de necesitar debugueo
+                try:
+                    self.green_q.put_nowait((self.green_mask.copy(), self.result_green.copy()))
+                except:
+                    pass # Agregar logger en caso de necesitar debugueo
+
+                # result = cv.bitwise_or(self.result_red, self.result_blue)
+                # result = cv.bitwise_or(result, self.result_green)
 
                 cv.imshow('Static Camera Robot Detection', self.result_green)
                 cv.imshow('Rojo', self.result_red)
@@ -127,48 +151,45 @@ class StaticCameraRobotNode(Node):
                 frame = None
 
 
-    def locate_object(self, mask):
+    def locate_object(self, queue):
         """
         Debe calcular la posicion del objeto de la imagen segmentada
         """
-        if mask is None:
-            # si la mascara es nula, idealmente cuando inicie el proceso, no debe hacer nada
-            return
+        while not self.stop_event.is_set():
+            try:
+                mask, result = queue.get(timeout=0.5)
+                if mask is None or result is None:
+                    continue # En caso de que que alguno sea nulo no tomar en cuenta
 
-        ##
-        try:
-            copy_mask = mask.copy() 
+                # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
+                kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+                closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
-            # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
-            kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
-            closed = cv.morphologyEx(copy_mask, cv.MORPH_CLOSE, kernel)
+                contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
+                largest = max(contours, key=cv.contourArea)
+                # print(largest)
+                # if largest.all() == None:
+                #     return None
+                # for ct in contours:
+                area = cv.contourArea(largest)
+                if area < 600:
+                    return None, None
 
-            contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
-            largest = max(contours, key=cv.contourArea)
-            # print(largest)
-            # if largest.all() == None:
-            #     return None
-            # for ct in contours:
-            area = cv.contourArea(largest)
-            if area < 600:
-                return None, None
+                x, y, w, h = cv.boundingRect(largest) # rectangulo
+                momento = cv.moments(largest)
+                if momento['m00'] != 0:
+                    cx = int(momento['m10']/momento['m00'])
+                    cy = int(momento['m01']/momento['m00'])
 
-            x, y, w, h = cv.boundingRect(largest) # rectangulo
-            momento = cv.moments(largest)
-            if momento['m00'] != 0:
-                cx = int(momento['m10']/momento['m00'])
-                cy = int(momento['m01']/momento['m00'])
+                # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
+                cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                cv.circle(result, (cx,cy), 4, (0,0,255), -1)
 
-            # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
-            cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
-            cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
-
-
-            cv.imshow('Find center Contorno', self.result)
-            cv.waitKey(1)
-        except Exception as e:
-            self.get_logger().error(f"[Find center error]: {e}")
-            return False
+                cv.imshow('Find center Contorno', result)
+                cv.waitKey(1)
+            except Exception as e:
+                self.get_logger().error(f"[Find center error]: {e}")
+                return False
         return cx, cy
 
 
@@ -181,7 +202,10 @@ class StaticCameraRobotNode(Node):
         self.stop_event.set()
         self.processing_thread.join()
         try:
-            cv2.destroyAllWindows()
+            self.red_thread.join(timeout=1.0)
+            self.blue_thread.join(timeout=1.0)
+            self.green_thread.join(timeout=1.0)
+            cv.destroyAllWindows()
         except:
             pass
         self.get_logger().info('[Static Camera Robot Node]: Hilos detenidos')
