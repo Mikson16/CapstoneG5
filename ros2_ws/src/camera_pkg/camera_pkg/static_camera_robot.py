@@ -53,11 +53,11 @@ class StaticCameraRobotNode(Node):
         # Iniciar hilo de procesamiento
         self.processing_thread = Thread(target=self.processing_loop)
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
-        self.red_thread = Thread(target=self.locate_object, args=(self.red_q,))
+        self.red_thread = Thread(target=self.locate_object, args=(self.red_q, 'red_coord'))
         self.red_thread.start()
-        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q,))
+        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, self.blue_coord))
         self.blue_thread.start()
-        self.green_thread = Thread(target=self.locate_object, args=(self.green_q,))
+        self.green_thread = Thread(target=self.locate_object, args=(self.green_q, self.green_coord))
         self.green_thread.start()
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
 
@@ -157,7 +157,9 @@ class StaticCameraRobotNode(Node):
                 # cv.imshow('Rojo', self.result_red)
                 # cv.imshow('Azul', self.result_blue)
                 # cv.waitKey(1)
-
+                self.get_logger().info(f' Centro rojo: {self.red_coord}')
+                self.get_logger().info(f' Centro azul: {self.blue_coord}')
+                self.get_logger().info(f' Centro verde: {self.green_coord}')
             except Empty:
                 frame = None
                 continue
@@ -193,6 +195,7 @@ class StaticCameraRobotNode(Node):
                 if momento['m00'] != 0:
                     cx = int(momento['m10']/momento['m00'])
                     cy = int(momento['m01']/momento['m00'])
+                    coord = (cx, cy)
 
                 # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
                 cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)
@@ -206,7 +209,7 @@ class StaticCameraRobotNode(Node):
                 self.get_logger().error(f"[Find center error robot color]: {e}")
                 self.get_logger().debug(traceback.format_exc())
                 continue
-        return cx, cy
+        # return cx, cy
 
 
 
