@@ -4,8 +4,6 @@
 Nodo que recibe la imagen de la camara estatica y la procesa para identificar donde se encuentran los eslabones del robot en la imagen.
 
 """
-
-from http.cookies import _quote
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -16,7 +14,8 @@ from threading import Thread
 from time import sleep
 import numpy as np
 from threading import Thread, Event
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
+import traceback
 
 class StaticCameraRobotNode(Node):
     def __init__(self):
@@ -27,7 +26,7 @@ class StaticCameraRobotNode(Node):
         self.img_q = Queue(maxsize=5) # cola fifo de tamano 5
         self.stop_event = Event()
         # Colas para hilos de procesamiento por color
-        self.red_q = Queue(maxsize=2)
+        self.red_q = Queue(maxsize=5)
         self.blue_q = Queue(maxsize=2)
         self.green_q = Queue(maxsize=2)
         # Suscripcion
@@ -45,6 +44,11 @@ class StaticCameraRobotNode(Node):
         self.red_mask = None
         self.blue_mask = None
         self.green_mask = None
+
+        # Color coord
+        self.red_coord = None
+        self.blue_coord = None
+        self.green_coord = None
 
         # Iniciar hilo de procesamiento
         self.processing_thread = Thread(target=self.processing_loop)
@@ -128,30 +132,38 @@ class StaticCameraRobotNode(Node):
                 # Invocar las funciones de localizacion para cada color
                 try:
                     self.red_q.put_nowait((self.red_mask.copy(), self.result_red.copy()))
-                except:
-                    pass # Agregar logger en caso de necesitar debugueo
+                except Full:
+                    self.get_logger().warning('red_q llena — descartando frame')
+                except Exception as e:
+                    self.get_logger().error(f'Error al ingresar en cola roja: {e}')
+                     # Agregar logger en caso de necesitar debugueo
                 try:
                     self.blue_q.put_nowait((self.blue_mask.copy(), self.result_blue.copy()))
-                except:
-                    pass # Agregar logger en caso de necesitar debugueo
+                except Full:
+                    self.get_logger().warning('red_q llena — descartando frame')                
+                except Exception as e:
+                    self.get_logger().error(f'Error al ingresar en cola azul: {e}')
                 try:
                     self.green_q.put_nowait((self.green_mask.copy(), self.result_green.copy()))
-                except:
-                    pass # Agregar logger en caso de necesitar debugueo
+                except Full:
+                    self.get_logger().warning('red_q llena — descartando frame')
+                except Exception as e:
+                    self.get_logger().error(f'Error al ingresar en cola roja: {e}')
 
                 # result = cv.bitwise_or(self.result_red, self.result_blue)
                 # result = cv.bitwise_or(result, self.result_green)
 
-                cv.imshow('Static Camera Robot Detection', self.result_green)
-                cv.imshow('Rojo', self.result_red)
-                cv.imshow('Azul', self.result_blue)
-                cv.waitKey(1)
+                # cv.imshow('Static Camera Robot Detection', self.result_green)
+                # cv.imshow('Rojo', self.result_red)
+                # cv.imshow('Azul', self.result_blue)
+                # cv.waitKey(1)
 
             except Empty:
                 frame = None
+                continue
 
 
-    def locate_object(self, queue):
+    def locate_object(self, queue, coord):
         """
         Debe calcular la posicion del objeto de la imagen segmentada
         """
@@ -159,6 +171,7 @@ class StaticCameraRobotNode(Node):
             try:
                 mask, result = queue.get(timeout=0.5)
                 if mask is None or result is None:
+                    self.get_logger().info(f'No esta recibiendo mascara o imagen {mask}, {result}')
                     continue # En caso de que que alguno sea nulo no tomar en cuenta
 
                 # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
@@ -187,9 +200,12 @@ class StaticCameraRobotNode(Node):
 
                 cv.imshow('Find center Contorno', result)
                 cv.waitKey(1)
+            except Empty:
+                continue
             except Exception as e:
-                self.get_logger().error(f"[Find center error]: {e}")
-                return False
+                self.get_logger().error(f"[Find center error robot color]: {e}")
+                self.get_logger().debug(traceback.format_exc())
+                continue
         return cx, cy
 
 
