@@ -27,8 +27,9 @@ class StaticCameraRobotNode(Node):
         self.stop_event = Event()
         # Colas para hilos de procesamiento por color
         self.red_q = Queue(maxsize=5)
-        self.blue_q = Queue(maxsize=2)
-        self.green_q = Queue(maxsize=2)
+        # self.blue_q = Queue(maxsize=5)
+        self.orange_q = Queue(maxsize=5)
+        self.green_q = Queue(maxsize=5)
         # Suscripcion
         self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_robot_callback, 10)
         self.get_logger().info('[Static Camera Robot Node]: Suscriptor creado')
@@ -38,16 +39,19 @@ class StaticCameraRobotNode(Node):
 
         # Resultados aplicacion de mascaras
         self.result_red = None
-        self.result_blue = None
+        # self.result_blue = None
+        self.result_orange = None
         self.result_green = None
         # Mask
         self.red_mask = None
-        self.blue_mask = None
+        # self.blue_mask = None
+        self.orange_mask = None
         self.green_mask = None
 
         # Color coord
         self.red_coord = None
-        self.blue_coord = None
+        # self.blue_coord = None
+        self.orange_coord = None
         self.green_coord = None
 
         # Iniciar hilo de procesamiento
@@ -55,8 +59,10 @@ class StaticCameraRobotNode(Node):
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
         self.red_thread = Thread(target=self.locate_object, args=(self.red_q, 'red_coord'))
         self.red_thread.start()
-        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, 'blue_coord'))
-        self.blue_thread.start()
+        # self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, 'blue_coord'))
+        # self.blue_thread.start()
+        self.orange_thread = Thread(target= self.locate_object, args=(self.orange_q, 'orange_coord'))
+        self.orange_thread.start()
         self.green_thread = Thread(target=self.locate_object, args=(self.green_q, 'green_coord'))
         self.green_thread.start()
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
@@ -112,10 +118,17 @@ class StaticCameraRobotNode(Node):
                 self.red_mask = cv.bitwise_or(maskr_1, maskr_2)       
 
                 # Azul
-                lower_blue = np.array([100,  70,  70])   # más amplio / suave
-                upper_blue = np.array([130, 255, 255])
+                # lower_blue = np.array([100,  70,  70])   # más amplio / suave
+                # upper_blue = np.array([130, 255, 255])
 
-                self.blue_mask = cv.inRange(frame_hsv, lower_blue, upper_blue)
+                # self.blue_mask = cv.inRange(frame_hsv, lower_blue, upper_blue)
+                # Naranjo
+                # Se agrega el naranjo y se cambia por el azul ya que la manguera de la bomba es azul
+                lower_orange = np.array([10,  100,  20])
+                upper_orange = np.array([20, 255, 255])
+
+                self.orange_mask = cv.inRange(frame_hsv, lower_orange, upper_orange)
+
 
                 # Verde
                 lower_green = np.array([45, 85, 85])
@@ -126,7 +139,8 @@ class StaticCameraRobotNode(Node):
                 # Resultados
 
                 self.result_red = cv.bitwise_and(frame, frame, mask = self.red_mask)
-                self.result_blue = cv.bitwise_and(frame, frame, mask = self.blue_mask)
+                # self.result_blue = cv.bitwise_and(frame, frame, mask = self.blue_mask)
+                self.result_orange = cv.bitwise_and(frame, frame, mask = self.orange_mask)
                 self.result_green = cv.bitwise_and(frame, frame, mask = self.green_mask)
 
                 # Invocar las funciones de localizacion para cada color
@@ -137,29 +151,38 @@ class StaticCameraRobotNode(Node):
                 except Exception as e:
                     self.get_logger().error(f'Error al ingresar en cola roja: {e}')
                      # Agregar logger en caso de necesitar debugueo
+                # try:
+                #     self.blue_q.put_nowait((self.blue_mask.copy(), self.result_blue.copy()))
+                # except Full:
+                #     self.get_logger().warning('red_q llena — descartando frame')                
+                # except Exception as e:
+                #     self.get_logger().error(f'Error al ingresar en cola azul: {e}')
                 try:
-                    self.blue_q.put_nowait((self.blue_mask.copy(), self.result_blue.copy()))
+                    self.orange_q.put_nowait((self.orange_mask.copy(), self.result_orange.copy()))
                 except Full:
-                    self.get_logger().warning('red_q llena — descartando frame')                
+                    self.get_logger().warning('orange_q llena — descartando frame')
                 except Exception as e:
-                    self.get_logger().error(f'Error al ingresar en cola azul: {e}')
+                    self.get_logger().error(f'Error al ingresar en cola naranja: {e}')
+
                 try:
                     self.green_q.put_nowait((self.green_mask.copy(), self.result_green.copy()))
                 except Full:
-                    self.get_logger().warning('red_q llena — descartando frame')
+                    self.get_logger().warning('green_q llena — descartando frame')
                 except Exception as e:
-                    self.get_logger().error(f'Error al ingresar en cola roja: {e}')
+                    self.get_logger().error(f'Error al ingresar en cola verde: {e}')
 
                 # result = cv.bitwise_or(self.result_red, self.result_blue)
                 # result = cv.bitwise_or(result, self.result_green)
 
                 # cv.imshow('Static Camera Robot Detection', self.result_green)
                 # cv.imshow('Rojo', self.result_red)
-                # cv.imshow('Azul', self.result_blue)
+                # cv.imshow('naranjo', self.result_orange)
                 # cv.waitKey(1)
                 self.get_logger().info(f' Centro rojo: {self.red_coord}')
-                self.get_logger().info(f' Centro azul: {self.blue_coord}')
+                # self.get_logger().info(f' Centro azul: {self.blue_coord}')
+                self.get_logger().info(f'Centro naranja: {self.orange_coord}')
                 self.get_logger().info(f' Centro verde: {self.green_coord}')
+
             except Empty:
                 frame = None
                 continue
@@ -227,7 +250,8 @@ class StaticCameraRobotNode(Node):
         self.processing_thread.join()
         try:
             self.red_thread.join(timeout=1.0)
-            self.blue_thread.join(timeout=1.0)
+            # self.blue_thread.join(timeout=1.0)
+            self.orange_thread.join(timeout=1.0)
             self.green_thread.join(timeout=1.0)
             cv.destroyAllWindows()
         except:

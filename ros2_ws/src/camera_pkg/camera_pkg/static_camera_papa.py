@@ -155,8 +155,8 @@ class StaticCameraPapaNode(Node):
             cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
 
 
-            cv.imshow('Find center Contorno', self.result)
-            cv.waitKey(1)
+            # cv.imshow('Find center Contorno', self.result)
+            # cv.waitKey(1)
         except Exception as e:
             self.get_logger().error(f"[Find center error papa]: {e}")
             return False
