@@ -55,9 +55,9 @@ class StaticCameraRobotNode(Node):
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
         self.red_thread = Thread(target=self.locate_object, args=(self.red_q, 'red_coord'))
         self.red_thread.start()
-        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, self.blue_coord))
+        self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, 'blue_coord'))
         self.blue_thread.start()
-        self.green_thread = Thread(target=self.locate_object, args=(self.green_q, self.green_coord))
+        self.green_thread = Thread(target=self.locate_object, args=(self.green_q, 'green_coord'))
         self.green_thread.start()
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
 
@@ -174,6 +174,7 @@ class StaticCameraRobotNode(Node):
                 mask, result = queue.get(timeout=0.5)
                 if mask is None or result is None:
                     self.get_logger().info(f'No esta recibiendo mascara o imagen {mask}, {result}')
+                    setattr(self, coord, None)
                     continue # En caso de que que alguno sea nulo no tomar en cuenta
 
                 # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
@@ -181,6 +182,9 @@ class StaticCameraRobotNode(Node):
                 closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
                 contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
+                if not contours:
+                    setattr(self, coord, None)
+                    continue
                 largest = max(contours, key=cv.contourArea)
                 # print(largest)
                 # if largest.all() == None:
@@ -188,20 +192,21 @@ class StaticCameraRobotNode(Node):
                 # for ct in contours:
                 area = cv.contourArea(largest)
                 if area < 600:
-                    return None, None
+                    setattr(self, coord, None)
+                    continue
 
                 x, y, w, h = cv.boundingRect(largest) # rectangulo
                 momento = cv.moments(largest)
                 if momento['m00'] != 0:
                     cx = int(momento['m10']/momento['m00'])
                     cy = int(momento['m01']/momento['m00'])
-                    coord = (cx, cy)
+                    setattr(self, coord, (cx, cy))
 
                 # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
                 cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)
                 cv.circle(result, (cx,cy), 4, (0,0,255), -1)
 
-                cv.imshow('Find center Contorno', result)
+                cv.imshow('Find center Contorno Robot', result)
                 cv.waitKey(1)
             except Empty:
                 continue
