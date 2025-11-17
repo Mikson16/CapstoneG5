@@ -29,7 +29,7 @@ class PapaOrientationNode(Node):
         self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10)
 
         # Crear suscriptor que reciba las coordenadas del eslabon
-        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', min_color_bbox_callback, 10)
+        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.min_color_bbox_callback, 10)
 
         # Color bbox
         self.orange_bbox = None
@@ -41,11 +41,23 @@ class PapaOrientationNode(Node):
         pass
 
     def min_color_bbox_callback(self, msg):
+        self.get_logger().info(f'mensaje {msg}')
         try:
             self.orange_bbox = msg[0]
             self.green_bbox = msg[1]
             self.red_bbox = msg[2]
+            self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
 
         except Exception as e:
             self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
             
+
+def main(args=None):
+    rclpy.init(args=args)
+    papa_orientation_node = PapaOrientationNode()
+    rclpy.spin(papa_orientation_node)
+    papa_orientation_node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
