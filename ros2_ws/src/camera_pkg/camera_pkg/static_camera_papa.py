@@ -144,19 +144,25 @@ class StaticCameraPapaNode(Node):
             if area < 600:
                 return None, None
 
-            x, y, w, h = cv.boundingRect(largest) # rectangulo
+            # x, y, w, h = cv.boundingRect(largest) # rectangulo
+
+            rect = cv.minAreaRect(largest) # minimo rectangulo
+            box = cv.boxPoints(rect)
+            box = np.int0(box)
             momento = cv.moments(largest)
+
             if momento['m00'] != 0:
                 cx = int(momento['m10']/momento['m00'])
                 cy = int(momento['m01']/momento['m00'])
 
             # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
-            cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            cv.drawContours(self.result,[box],0,(0,0,255),2) # minimo rectangulo
+            # cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
 
 
-            # cv.imshow('Find center Contorno', self.result)
-            # cv.waitKey(1)
+            cv.imshow('Find center Contorno Papa', self.result)
+            cv.waitKey(1)
         except Exception as e:
             self.get_logger().error(f"[Find center error papa]: {e}")
             return False
