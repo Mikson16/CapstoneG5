@@ -29,7 +29,23 @@ class PapaOrientationNode(Node):
         self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10)
 
         # Crear suscriptor que reciba las coordenadas del eslabon
+        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', min_color_bbox_callback, 10)
+
+        # Color bbox
+        self.orange_bbox = None
+        self.green_bbox = None
+        self.red_bbox = None
 
 
     def min_bbox_callback(self, msg):
         pass
+
+    def min_color_bbox_callback(self, msg):
+        try:
+            self.orange_bbox = msg[0]
+            self.green_bbox = msg[1]
+            self.red_bbox = msg[2]
+
+        except Exception as e:
+            self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
+            
