@@ -218,7 +218,10 @@ class StaticCameraRobotNode(Node):
                     setattr(self, coord, None)
                     continue
 
-                x, y, w, h = cv.boundingRect(largest) # rectangulo
+                # x, y, w, h = cv.boundingRect(largest) # rectangulo
+                rect = cv.minAreaRect(largest)
+                box = cv.boxPoints(rect)
+                box = np.int0(box)
                 momento = cv.moments(largest)
                 if momento['m00'] != 0:
                     cx = int(momento['m10']/momento['m00'])
@@ -226,11 +229,12 @@ class StaticCameraRobotNode(Node):
                     setattr(self, coord, (cx, cy))
 
                 # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
-                cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                # cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                cv.drawContours(result,[box],0,(0,0,255),2)
                 cv.circle(result, (cx,cy), 4, (0,0,255), -1)
 
-                # cv.imshow('Find center Contorno Robot', result)
-                # cv.waitKey(1)
+                cv.imshow('Find center Contorno Robot', result)
+                cv.waitKey(1)
             except Empty:
                 continue
             except Exception as e:

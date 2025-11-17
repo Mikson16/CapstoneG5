@@ -34,6 +34,8 @@ class StaticCameraPapaNode(Node):
         # Crear publicador
         self.publisher = self.create_publisher(Int16MultiArray, 'static_camera/papa_coord', 10) # Publica las coordenadas en formato int de 16 bits
 
+        self.publisher_bbox = self.create_publisher(Int16MultiArray, 'static_camera/min_bbox', 10) # Publica las coordenadas del min bounding box
+
         # atributo de resultado
         self.result = None
 
@@ -149,6 +151,7 @@ class StaticCameraPapaNode(Node):
             rect = cv.minAreaRect(largest) # minimo rectangulo
             box = cv.boxPoints(rect)
             box = np.int0(box)
+            # print(box)
             momento = cv.moments(largest)
 
             if momento['m00'] != 0:
