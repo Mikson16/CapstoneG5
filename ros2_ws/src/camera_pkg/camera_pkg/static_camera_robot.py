@@ -124,7 +124,7 @@ class StaticCameraRobotNode(Node):
                 # self.blue_mask = cv.inRange(frame_hsv, lower_blue, upper_blue)
                 # Naranjo
                 # Se agrega el naranjo y se cambia por el azul ya que la manguera de la bomba es azul
-                lower_orange = np.array([10,  100,  20])
+                lower_orange = np.array([12,  120,  120])
                 upper_orange = np.array([20, 255, 255])
 
                 self.orange_mask = cv.inRange(frame_hsv, lower_orange, upper_orange)
