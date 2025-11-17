@@ -26,8 +26,10 @@ class PapaOrientationNode(Node):
         self.get_logger().info('[Papa Orientation Node]: ha sido iniciado')
 
         # Crear suscriptor al mensaje de la bounding box
-        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.orientation_callback, 10)
+        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10)
+
+        # Crear suscriptor que reciba las coordenadas del eslabon
 
 
-    def orientation_callback(self):
+    def min_bbox_callback(self, msg):
         pass

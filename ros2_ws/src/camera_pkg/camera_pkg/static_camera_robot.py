@@ -33,6 +33,8 @@ class StaticCameraRobotNode(Node):
         # Suscripcion
         self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_robot_callback, 10)
         self.get_logger().info('[Static Camera Robot Node]: Suscriptor creado')
+        # Publicador
+        self.min_bbox_publisher = self.create_publisher(Int16MultiArray, 'static_camera_robot/min_bbox_coord') # Este publicado debe mandar las coordenadas de los bbox de los 3 colores.
 
         # Bridge
         self.bridge = CvBridge()
@@ -182,6 +184,9 @@ class StaticCameraRobotNode(Node):
                 # self.get_logger().info(f' Centro azul: {self.blue_coord}')
                 self.get_logger().info(f'Centro naranja: {self.orange_coord}')
                 self.get_logger().info(f' Centro verde: {self.green_coord}')
+
+                # Publicar las coordenadas obtenidas, solo si los 3 colores se pueden ver
+                bbox_cord = 
 
             except Empty:
                 frame = None
