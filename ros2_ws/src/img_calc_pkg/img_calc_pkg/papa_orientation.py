@@ -83,9 +83,36 @@ class PapaOrientationNode(Node):
                 self.red_bbox = data_color[16: 24]
                 self.papa_bbox = data_papa
 
-                self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
-                # Obtener valores de la papa
-                self.get_logger().info(f'Info de la papa {data_papa}')
+                # self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
+                # # Obtener valores de la papa
+                # self.get_logger().info(f'Info de la papa {data_papa}')
+
+                ## Ahora el procesamiento, obtener el angulo de la papa respecto a los colores
+                # Sacando la linea central vertical de la bolsa de papa
+                pts = np.array([[int(data_papa[i]), int(data_papa[i+1])] for i in range(0, 8, 2)], dtype=int)
+                # p1 = np.array([data_papa[0], data_papa[1]])
+                # p2 = np.array([data_papa[2], data_papa[3]])
+                # p3 = np.array([data_papa[4], data_papa[5]])
+                # p4 = np.array([data_papa[6], data_papa[7]]) 
+                # box = np.array([p1, p2, p3, p4])
+                center = pts.mean(axis = 0)
+                cx = int(round(float(center[0])))
+                cy = int(round(float(center[1])))
+
+                dist_1 = float(np.linalg.norm(pts[0] - pts[1]))
+                dist_2 = float(np.linalg.norm(pts[1] - pts[2]))
+
+                self.papa_bbox = pts
+                self.get_logger().info(f'Centro promedio: {cx, cy}, distancias: {dist_1, dist_2}')
+
+                # if dist_1 > dist_2:
+                #     # significa que p1 con p2 y p3 con p4 son los lados mas grandes
+                #     pass
+
+                # else:
+                #     # significa que p2 con p3 y p4 con p1 son los lados mas grandes 
+                #     pass
+
             except Full:
                 self.get_logger().warning(f'Cola llena')
             except Empty:
