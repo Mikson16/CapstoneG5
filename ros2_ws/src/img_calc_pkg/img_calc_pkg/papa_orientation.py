@@ -16,7 +16,8 @@ from threading import Thread
 from time import sleep
 import numpy as np
 from threading import Thread, Event
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
+import traceback
 
 
 class PapaOrientationNode(Node):
@@ -36,8 +37,8 @@ class PapaOrientationNode(Node):
         # Crear suscriptor que reciba las coordenadas del eslabon
         self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.color_bbox_q_callback, 10)# esto no esta escuchando
         # Crear hilo de procesamiento
-        self.processing_thread = Thread(target=self.processing_loop)
-        self.processing_loop.start()
+        self.processing_thread = Thread(target=self.processing_loop, daemon=True)
+        self.processing_thread.start()
 
         # Color bbox
         self.orange_bbox = None
@@ -47,38 +48,53 @@ class PapaOrientationNode(Node):
         # bbox de la bolsa
         self.papa_bbox = None
 
-    def  papa_bbox_q_callback(self, msg):
+    def papa_bbox_q_callback(self, msg):
         try:
-            data = msg.data
+            data = list(msg.data)
             self.papa_bbox_q.put_nowait(data)
+        except Full:
+            self.get_logger().warning('papa_bbox_q llena: descartando mensaje')
         except Exception as e:
             self.get_logger().warning(f'Cola de bbox papa con problema: {e}')
+            self.get_logger().debug(traceback.format_exc())
 
     def color_bbox_q_callback(self, msg):
         try:
-            data = msg.data
+            data = list(msg.data)
             self.color_bbox_q.put_nowait(data)
+        except Full:
+            self.get_logger().warning('color_bbox_q llena: descartando mensaje')
         except Exception as e:
             self.get_logger().warning(f'Cola de bbox color con problema: {e}')
+            self.get_logger().debug(traceback.format_exc())
 
 
     def processing_loop(self):
         # self.get_logger().info(f'mensaje {msg.data}')
+        while not self.stop_event.is_set():
 
-        try:
-            #Obtener valores de los colores
-            data_color = self.color_bbox_q.get_nowait()
-            self.orange_bbox = data[0:8]
-            self.green_bbox = data[8:16]
-            self.red_bbox = data[16: 24]
+            try:
+                #Obtener valores de los colores
+                data_color = self.color_bbox_q.get_nowait()
+                data_papa = self.papa_bbox_q.get_nowait() 
 
-            self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
-            # Obtener valores de la papa
-            data_papa = self.papa_bbox_q.get_nowait() 
-            self.get_logger().info(f'Info de la papa {data_papa}')
+                self.orange_bbox = data_color[0:8]
+                self.green_bbox = data_color[8:16]
+                self.red_bbox = data_color[16: 24]
+                self.papa_bbox = data_papa
 
-        except Exception as e:
-            self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
+                self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
+                # Obtener valores de la papa
+                self.get_logger().info(f'Info de la papa {data_papa}')
+            except Full:
+                self.get_logger().warning(f'Cola llena')
+            except Empty:
+                # self.get_logger().info(f'Cola vacia')
+                data_color = None
+            except Exception as e:
+                self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
+                self.get_logger().debug(traceback.format_exc())
+                continue
 
     def destroy_threads(self):
         """
@@ -86,7 +102,7 @@ class PapaOrientationNode(Node):
         """
         self.get_logger().info('Deteniendo hilos de procesamiento')
         self.stop_event.set()
-        self.processing_thread.join()
+        self.processing_thread.join(timeout=1.0)
         try:
             cv2.destroyAllWindows()
         except:

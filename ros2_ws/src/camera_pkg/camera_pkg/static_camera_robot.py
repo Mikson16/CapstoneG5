@@ -35,6 +35,7 @@ class StaticCameraRobotNode(Node):
         self.get_logger().info('[Static Camera Robot Node]: Suscriptor creado')
         # Publicador
         self.min_bbox_publisher = self.create_publisher(Int16MultiArray, 'static_camera_robot/min_bbox_coord', 10) # Este publicado debe mandar las coordenadas de los bbox de los 3 colores.
+        self._destroyed = False
 
         # Bridge
         self.bridge = CvBridge()
@@ -187,10 +188,10 @@ class StaticCameraRobotNode(Node):
                 # cv.imshow('Rojo', self.result_red)
                 # cv.imshow('naranjo', self.result_orange)
                 # cv.waitKey(1)
-                self.get_logger().info(f' Centro rojo: {self.red_coord}')
-                # self.get_logger().info(f' Centro azul: {self.blue_coord}')
-                self.get_logger().info(f'Centro naranja: {self.orange_coord}')
-                self.get_logger().info(f' Centro verde: {self.green_coord}')
+                # self.get_logger().info(f' Centro rojo: {self.red_coord}')
+                # # self.get_logger().info(f' Centro azul: {self.blue_coord}')
+                # self.get_logger().info(f'Centro naranja: {self.orange_coord}')
+                # self.get_logger().info(f' Centro verde: {self.green_coord}')
 
                 # Publicar las coordenadas obtenidas, solo si los 3 colores se pueden ver
                 try: #!TODO eliminar un color ya que sera innecesario para la orientacion
@@ -200,10 +201,15 @@ class StaticCameraRobotNode(Node):
                         bbox_cord = np.array([self.orange_bbox, self.green_bbox, self.red_bbox])
                         bbox_cord = [int(x) for x in bbox_cord.flatten().tolist()]
 
-                        msg = Int16MultiArray()
-                        msg.data = bbox_cord
-                        self.min_bbox_publisher.publish(msg)
-                        self.get_logger().info('Enviando bbox colores')
+
+                        if rclpy.ok() and not getattr(self, '_destroyed', False):
+                            msg = Int16MultiArray()
+                            msg.data = bbox_cord
+                            try:
+                                self.min_bbox_publisher.publish(msg)
+                                self.get_logger().info('Enviando bbox colores')
+                            except Exception as e:
+                                self.get_logger().warning(f'Problema al publicar el mensaje: {e}')
                 except Exception as e:
                     self.get_logger().warning(f'Error al enviar bbox de colores {e}')
                     
@@ -279,6 +285,7 @@ class StaticCameraRobotNode(Node):
         """
         self.get_logger().info('[Static Camera Robot Node]: Deteniendo hilos de procesamiento')
         self.stop_event.set()
+        self._destroyed = True
         self.processing_thread.join()
         try:
             self.red_thread.join(timeout=1.0)
