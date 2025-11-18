@@ -56,16 +56,23 @@ class StaticCameraRobotNode(Node):
         self.orange_coord = None
         self.green_coord = None
 
+        # bbox coord
+        self.red_bbox = None
+        # self.blue_coord = None
+        self.orange_bbox = None
+        self.green_bbox = None
+
+
         # Iniciar hilo de procesamiento
         self.processing_thread = Thread(target=self.processing_loop)
         self.processing_thread.start() # inicio el Hilo, no uso un hilo daemon, porque Ros2 ya lo hace internamente
-        self.red_thread = Thread(target=self.locate_object, args=(self.red_q, 'red_coord'))
+        self.red_thread = Thread(target=self.locate_object, args=(self.red_q, 'red_coord', 'red_bbox'))
         self.red_thread.start()
         # self.blue_thread = Thread(target=self.locate_object, args=(self.blue_q, 'blue_coord'))
         # self.blue_thread.start()
-        self.orange_thread = Thread(target= self.locate_object, args=(self.orange_q, 'orange_coord'))
+        self.orange_thread = Thread(target= self.locate_object, args=(self.orange_q, 'orange_coord', 'orange_bbox'))
         self.orange_thread.start()
-        self.green_thread = Thread(target=self.locate_object, args=(self.green_q, 'green_coord'))
+        self.green_thread = Thread(target=self.locate_object, args=(self.green_q, 'green_coord', 'green_bbox'))
         self.green_thread.start()
         self.get_logger().info('[Static Camera Robot Node]: Hilo de procesamiento iniciado')
 
@@ -187,21 +194,25 @@ class StaticCameraRobotNode(Node):
 
                 # Publicar las coordenadas obtenidas, solo si los 3 colores se pueden ver
                 try:
-                    self.get_logger().info(f'las coordenadas estan llegando de esta manera {self.red_coord}, {self.orange_coord}, {self.green_coord}')
-                    if (self.red_coord and self.orange_coord and self.green_coord) != None:
-                        bbox_cord = np.array([self.orange_coord, self.green_coord, self.red_coord])
-                        msg = bbox_cord
+                    self.get_logger().info(f'las coordenadas estan llegando de esta manera  {self.orange_bbox}, {self.green_bbox}, {self.red_bbox},')
+                    if self.red_bbox is not None and self.orange_bbox is not None and self.green_bbox is not None:
+                        bbox_cord = np.array([self.orange_bbox, self.green_bbox, self.red_bbox])
+                        bbox_cord = [int(x) for x in bbox_cord.flatten().tolist()]
+
+                        msg = Int16MultiArray()
+                        msg.data = bbox_cord
                         self.min_bbox_publisher.publish(msg)
-                        self.get_logger().info('Enviando coordenadas colores')
-                except:
-                    continue
+                        self.get_logger().info('Enviando bbox colores')
+                except Exception as e:
+                    self.get_logger().warning(f'Error al enviar bbox de colores {e}')
+                    
 
             except Empty:
                 frame = None
                 continue
 
 
-    def locate_object(self, queue, coord):
+    def locate_object(self, queue, coord, bbox):
         """
         Debe calcular la posicion del objeto de la imagen segmentada
         """
@@ -220,6 +231,7 @@ class StaticCameraRobotNode(Node):
                 contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal
                 if not contours:
                     setattr(self, coord, None)
+                    setattr(self, bbox, None)
                     continue
                 largest = max(contours, key=cv.contourArea)
                 # print(largest)
@@ -229,6 +241,7 @@ class StaticCameraRobotNode(Node):
                 area = cv.contourArea(largest)
                 if area < 600:
                     setattr(self, coord, None)
+                    setattr(self, bbox, None)
                     continue
 
                 # x, y, w, h = cv.boundingRect(largest) # rectangulo
@@ -240,6 +253,7 @@ class StaticCameraRobotNode(Node):
                     cx = int(momento['m10']/momento['m00'])
                     cy = int(momento['m01']/momento['m00'])
                     setattr(self, coord, (cx, cy))
+                    setattr(self, bbox, box)
 
                 # cv.drawContours(self.result, [largest], -1, (0,255,0), 2)
                 # cv.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 3)

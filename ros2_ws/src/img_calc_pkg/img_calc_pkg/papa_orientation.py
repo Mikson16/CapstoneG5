@@ -26,10 +26,10 @@ class PapaOrientationNode(Node):
         self.get_logger().info('[Papa Orientation Node]: ha sido iniciado')
 
         # Crear suscriptor al mensaje de la bounding box
-        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10)
+        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10) 
 
         # Crear suscriptor que reciba las coordenadas del eslabon
-        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.min_color_bbox_callback, 10)
+        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.min_color_bbox_callback, 10)# esto no esta escuchando
 
         # Color bbox
         self.orange_bbox = None
@@ -41,11 +41,12 @@ class PapaOrientationNode(Node):
         pass
 
     def min_color_bbox_callback(self, msg):
-        self.get_logger().info(f'mensaje {msg}')
+        self.get_logger().info(f'mensaje {msg.data}')
         try:
-            self.orange_bbox = msg[0]
-            self.green_bbox = msg[1]
-            self.red_bbox = msg[2]
+            data = list(msg.data)
+            self.orange_bbox = data[0:8]
+            self.green_bbox = data[9:16]
+            self.red_bbox = data[17: 24]
             self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
 
         except Exception as e:
