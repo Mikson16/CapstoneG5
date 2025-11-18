@@ -25,38 +25,79 @@ class PapaOrientationNode(Node):
 
         self.get_logger().info('[Papa Orientation Node]: ha sido iniciado')
 
-        # Crear suscriptor al mensaje de la bounding box
-        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.min_bbox_callback, 10) 
+        # Armar colas
+        self.papa_bbox_q = Queue(maxsize=5)
+        self.color_bbox_q = Queue(maxsize=5)
+        self.stop_event = Event()
+
+        # Crear suscriptor al mensaje de la bounding box de la bolsa de papa
+        self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.papa_bbox_q_callback, 10) 
 
         # Crear suscriptor que reciba las coordenadas del eslabon
-        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.min_color_bbox_callback, 10)# esto no esta escuchando
+        self.min_color_bbox = self.create_subscription(Int16MultiArray, 'static_camera_robot/min_bbox_coord', self.color_bbox_q_callback, 10)# esto no esta escuchando
+        # Crear hilo de procesamiento
+        self.processing_thread = Thread(target=self.processing_loop)
+        self.processing_loop.start()
 
         # Color bbox
         self.orange_bbox = None
         self.green_bbox = None
         self.red_bbox = None
 
+        # bbox de la bolsa
+        self.papa_bbox = None
 
-    def min_bbox_callback(self, msg):
-        pass
-
-    def min_color_bbox_callback(self, msg):
-        self.get_logger().info(f'mensaje {msg.data}')
+    def  papa_bbox_q_callback(self, msg):
         try:
-            data = list(msg.data)
+            data = msg.data
+            self.papa_bbox_q.put_nowait(data)
+        except Exception as e:
+            self.get_logger().warning(f'Cola de bbox papa con problema: {e}')
+
+    def color_bbox_q_callback(self, msg):
+        try:
+            data = msg.data
+            self.color_bbox_q.put_nowait(data)
+        except Exception as e:
+            self.get_logger().warning(f'Cola de bbox color con problema: {e}')
+
+
+    def processing_loop(self):
+        # self.get_logger().info(f'mensaje {msg.data}')
+
+        try:
+            #Obtener valores de los colores
+            data_color = self.color_bbox_q.get_nowait()
             self.orange_bbox = data[0:8]
-            self.green_bbox = data[9:16]
-            self.red_bbox = data[17: 24]
+            self.green_bbox = data[8:16]
+            self.red_bbox = data[16: 24]
+
             self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
+            # Obtener valores de la papa
+            data_papa = self.papa_bbox_q.get_nowait() 
+            self.get_logger().info(f'Info de la papa {data_papa}')
 
         except Exception as e:
             self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
-            
+
+    def destroy_threads(self):
+        """
+        Destruir todos los hilos antes de destruir el nodo
+        """
+        self.get_logger().info('Deteniendo hilos de procesamiento')
+        self.stop_event.set()
+        self.processing_thread.join()
+        try:
+            cv2.destroyAllWindows()
+        except:
+            pass
+        self.get_logger().info('Hilos detenidos')          
 
 def main(args=None):
     rclpy.init(args=args)
     papa_orientation_node = PapaOrientationNode()
     rclpy.spin(papa_orientation_node)
+    papa_orientation_node.destroy_threads()
     papa_orientation_node.destroy_node()
     rclpy.shutdown()
 

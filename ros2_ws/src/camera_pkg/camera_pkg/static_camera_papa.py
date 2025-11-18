@@ -163,6 +163,12 @@ class StaticCameraPapaNode(Node):
             # cv.rectangle(self.result, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv.circle(self.result, (cx,cy), 4, (0,0,255), -1)
 
+            # Publicar mensaje de la min bbox
+            msg = Int16MultiArray()
+            bbox = [int(x) for x in box.flatten().tolist()]
+            msg.data = bbox
+            self.publisher_bbox.publish(msg)
+            self.get_logger().info(f'Enviando mensaje de la bbox de la bolsa')
 
             cv.imshow('Find center Contorno Papa', self.result)
             cv.waitKey(1)

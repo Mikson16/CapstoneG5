@@ -193,9 +193,10 @@ class StaticCameraRobotNode(Node):
                 self.get_logger().info(f' Centro verde: {self.green_coord}')
 
                 # Publicar las coordenadas obtenidas, solo si los 3 colores se pueden ver
-                try:
+                try: #!TODO eliminar un color ya que sera innecesario para la orientacion
                     self.get_logger().info(f'las coordenadas estan llegando de esta manera  {self.orange_bbox}, {self.green_bbox}, {self.red_bbox},')
                     if self.red_bbox is not None and self.orange_bbox is not None and self.green_bbox is not None:
+
                         bbox_cord = np.array([self.orange_bbox, self.green_bbox, self.red_bbox])
                         bbox_cord = [int(x) for x in bbox_cord.flatten().tolist()]
 
