@@ -276,8 +276,8 @@ class StaticCameraRobotNode(Node):
                 cv.drawContours(result,[box],0,(0,0,255),2)
                 cv.circle(result, (cx,cy), 4, (0,0,255), -1)
 
-                # cv.imshow('Find center Contorno Robot', result)
-                # cv.waitKey(1)
+                cv.imshow('Find center Contorno Robot', result)
+                cv.waitKey(1)
             except Empty:
                 continue
             except Exception as e:
