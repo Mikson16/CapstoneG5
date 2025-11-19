@@ -32,6 +32,8 @@ class PapaOrientationNode(Node):
         self.color_bbox_q = Queue(maxsize=5)
         self.stop_event = Event()
 
+        self.publisher = self.create_publisher(Int16MultiArray, 'orientation/papa_orientation', 10)
+
         # Crear suscriptor al mensaje de la bounding box de la bolsa de papa
         self.subscription = self.create_subscription(Int16MultiArray, 'static_camera/min_bbox', self.papa_bbox_q_callback, 10) 
 
@@ -48,6 +50,9 @@ class PapaOrientationNode(Node):
 
         # bbox de la bolsa
         self.papa_bbox = None
+
+        # Orientacion de la bolsa respecto al segundo eslabon
+        self.ang_bolsa = None
 
     def papa_bbox_q_callback(self, msg):
         try:
@@ -84,7 +89,7 @@ class PapaOrientationNode(Node):
                 # self.green_bbox = data_color[8:16]
                 # self.red_bbox = data_color[16: 24]
                 self.green_bbox = data_color[0:8]
-                self.red_bbox = data_color[8 : 16]
+                self.red_bbox = data_color[8:16]
                 self.papa_bbox = data_papa
 
                 # self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
@@ -151,15 +156,26 @@ class PapaOrientationNode(Node):
                     grados += 180
                 
                 self.get_logger().info(f"GRADOS: {grados}")
+                self.ang_bolsa = grados
+
+                try:
+                    msg = Int16MultiArray()
+                    msg.data = self.ang_bolsa
+                    self.publisher.publish(msg)
+                except Exception as e:
+                    self.get_logger().warning(f"No se pudo publicar la orientacion la orientacion: {e}")
 
             except Full:
                 self.get_logger().warning(f'Cola llena')
+                self.ang_bolsa = None
             except Empty:
                 # self.get_logger().info(f'Cola vacia')
                 data_color = None
+                self.ang_bolsa = None
             except Exception as e:
                 self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
                 self.get_logger().debug(traceback.format_exc())
+                self.ang_bolsa = None
                 continue
 
     def destroy_threads(self):
