@@ -15,6 +15,9 @@ class ArduinoCoordPubNode(Node):
 
         self.get_logger().info('[Arduino Coord Pub Node]: ha sido iniciado')
 
+
+        # Lista de mensajes de prueba
+        self.test_msg_serial_list = ['0', '1', 'holaaa', '2324', '67', '1726861387', '333333', '29387928', 'aaaaa', 'kjcbhawkuckbshdc', '1234567890987654321', 'qwertyuioolkjhgfdsazxcvbn']
         # Publicadores y Subscriptores
 
         self.pub = self.create_publisher(String, 'arduino/command/coord', 10)
@@ -28,10 +31,16 @@ class ArduinoCoordPubNode(Node):
         """
         De momento pide un input para mandar por consola una coordenada
         """ 
-
+        # Contador para testeo de mensaje
+        ct = 0
         while rclpy.ok():
-            msg = str(input("Escribe una coordenada: "))
-            self.pub.publish(String(data=msg))
+            msg = String()
+            msg.data = self.test_msg_serial_list[ct]
+            self.pub.publish(msg)
+
+            ct +=1
+            if ct >= len(self.test_msg_serial_list):
+                ct = 0
 
             #!TODO Nota para el yo de mañana que cansado se olvidara de lo que hizo
             """
