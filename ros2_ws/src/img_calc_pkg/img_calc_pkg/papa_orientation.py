@@ -18,6 +18,7 @@ import numpy as np
 from threading import Thread, Event
 from queue import Queue, Empty, Full
 import traceback
+from math import atan2, degrees
 
 
 class PapaOrientationNode(Node):
@@ -90,8 +91,8 @@ class PapaOrientationNode(Node):
                 ## Ahora el procesamiento, obtener el angulo de la papa respecto a los colores
                 # Sacando la linea central vertical de la bolsa de papa
                 pts = np.array([[int(data_papa[i]), int(data_papa[i+1])] for i in range(0, 8, 2)], dtype=int)
-                green_pts = np.array([[int(green_bbox[i]), int(green_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
-                red_pts = np.array([[int(red_bbox[i]), int(red_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
+                green_pts = np.array([[int(self.green_bbox[i]), int(self.green_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
+                red_pts = np.array([[int(self.red_bbox[i]), int(self.red_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
                 # p1 = np.array([data_papa[0], data_papa[1]])
                 # p2 = np.array([data_papa[2], data_papa[3]])
                 # p3 = np.array([data_papa[4], data_papa[5]])
@@ -104,12 +105,17 @@ class PapaOrientationNode(Node):
                 green_center = green_pts.mean(axis=0)
                 red_center = red_pts.mean(axis=0)
                 # Centro verde
-                gcx = int(round(float(green_center[0])))
-                gcy = int(round(float(green_center[1])))
+                gcx = int(round(green_center[0]))
+                gcy = int(round(green_center[1]))
                 # Centro rojo
-                rcx = int(round(float(red_center[0])))
-                rcy = int(round(float(red_center[1])))
+                rcx = int(round(red_center[0]))
+                rcy = int(round(red_center[1]))
 
+                #Angulo de los colores
+                # El orden de los colores es verde-rojo
+                dx = rcx - gcx
+                dy = rcy - gcy
+                theta_robot = atan2(dy, dx)
 
                 dist_1 = float(np.linalg.norm(pts[0] - pts[1]))
                 dist_2 = float(np.linalg.norm(pts[1] - pts[2]))
@@ -119,14 +125,33 @@ class PapaOrientationNode(Node):
 
                 if dist_1 > dist_2:
                     # significa que p1 con p2 y p3 con p4 son los lados mas grandes
-                    self.get_logger().info(f' el punto 1 y 2 con los 3 y 4 son los lados mas grandes {dist_1}')
-
-                    pass
+                    # self.get_logger().info(f' el punto 1 y 2 con los 3 y 4 son los lados mas grandes {dist_1}')
+                    dx_bolsa = pts[0][0] - pts[1][0]
+                    dy_bolsa = pts[1][0] - pts[1][1]
 
                 else:
                     # significa que p2 con p3 y p4 con p1 son los lados mas grandes 
-                    self.get_logger().info(f' El punto 2 y 3 con los 4 y 1 son los lados mas grandes {dist_2}')
-                    pass
+                    # self.get_logger().info(f' El punto 2 y 3 con los 4 y 1 son los lados mas grandes {dist_2}')
+                    dx_bolsa = pts[1][0] - pts[2][0]
+                    dy_bolsa = pts[1][1] - pts[2][1]
+                
+                theta_bolsa = atan2(dy_bolsa, dx_bolsa)
+
+                # Obtener diferencia
+                delta = theta_bolsa - theta_robot
+
+                # Convertir a grados
+                grados = degrees(delta)
+                # Normalizar entre -180 y 180
+                grados = (grados + 180) % 360 - 180
+
+                # Simetria
+                if grados > 90:
+                    grados -= 180
+                elif grados < -90:
+                    grados += 180
+                
+                self.get_logger().info(f"GRADOS: {grados}")
 
             except Full:
                 self.get_logger().warning(f'Cola llena')
@@ -161,3 +186,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+# https://stackoverflow.com/questions/35749246/python-atan-or-atan2-what-should-i-use
