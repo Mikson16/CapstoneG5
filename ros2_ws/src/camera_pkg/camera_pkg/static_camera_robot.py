@@ -195,7 +195,7 @@ class StaticCameraRobotNode(Node):
 
                 # Publicar las coordenadas obtenidas, solo si los 3 colores se pueden ver
                 try: #!TODO eliminar un color ya que sera innecesario para la orientacion
-                    self.get_logger().info(f'las coordenadas estan llegando de esta manera  {self.orange_bbox}, {self.green_bbox}, {self.red_bbox},')
+                    # self.get_logger().info(f'las coordenadas estan llegando de esta manera  {self.orange_bbox}, {self.green_bbox}, {self.red_bbox},')
                     if self.red_bbox is not None and self.orange_bbox is not None and self.green_bbox is not None:
 
                         bbox_cord = np.array([self.orange_bbox, self.green_bbox, self.red_bbox])
@@ -207,7 +207,7 @@ class StaticCameraRobotNode(Node):
                             msg.data = bbox_cord
                             try:
                                 self.min_bbox_publisher.publish(msg)
-                                self.get_logger().info('Enviando bbox colores')
+                                # self.get_logger().info('Enviando bbox colores')
                             except Exception as e:
                                 self.get_logger().warning(f'Problema al publicar el mensaje: {e}')
                 except Exception as e:

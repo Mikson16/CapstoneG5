@@ -90,6 +90,8 @@ class PapaOrientationNode(Node):
                 ## Ahora el procesamiento, obtener el angulo de la papa respecto a los colores
                 # Sacando la linea central vertical de la bolsa de papa
                 pts = np.array([[int(data_papa[i]), int(data_papa[i+1])] for i in range(0, 8, 2)], dtype=int)
+                green_pts = np.array([[int(green_bbox[i]), int(green_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
+                red_pts = np.array([[int(red_bbox[i]), int(red_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
                 # p1 = np.array([data_papa[0], data_papa[1]])
                 # p2 = np.array([data_papa[2], data_papa[3]])
                 # p3 = np.array([data_papa[4], data_papa[5]])
@@ -99,19 +101,32 @@ class PapaOrientationNode(Node):
                 cx = int(round(float(center[0])))
                 cy = int(round(float(center[1])))
 
+                green_center = green_pts.mean(axis=0)
+                red_center = red_pts.mean(axis=0)
+                # Centro verde
+                gcx = int(round(float(green_center[0])))
+                gcy = int(round(float(green_center[1])))
+                # Centro rojo
+                rcx = int(round(float(red_center[0])))
+                rcy = int(round(float(red_center[1])))
+
+
                 dist_1 = float(np.linalg.norm(pts[0] - pts[1]))
                 dist_2 = float(np.linalg.norm(pts[1] - pts[2]))
 
                 self.papa_bbox = pts
                 self.get_logger().info(f'Centro promedio: {cx, cy}, distancias: {dist_1, dist_2}')
 
-                # if dist_1 > dist_2:
-                #     # significa que p1 con p2 y p3 con p4 son los lados mas grandes
-                #     pass
+                if dist_1 > dist_2:
+                    # significa que p1 con p2 y p3 con p4 son los lados mas grandes
+                    self.get_logger().info(f' el punto 1 y 2 con los 3 y 4 son los lados mas grandes {dist_1}')
 
-                # else:
-                #     # significa que p2 con p3 y p4 con p1 son los lados mas grandes 
-                #     pass
+                    pass
+
+                else:
+                    # significa que p2 con p3 y p4 con p1 son los lados mas grandes 
+                    self.get_logger().info(f' El punto 2 y 3 con los 4 y 1 son los lados mas grandes {dist_2}')
+                    pass
 
             except Full:
                 self.get_logger().warning(f'Cola llena')

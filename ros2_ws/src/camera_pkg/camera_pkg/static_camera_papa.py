@@ -73,7 +73,8 @@ class StaticCameraPapaNode(Node):
                 
             # Obtener la imagen de la cola
             try:
-                frame = self.img_q.get_nowait()
+                # frame = self.img_q.get_nowait()
+                frame = self.img_q.get(timeout=0.5)
                 # Pasar la imagen al espacio de color HSV
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV) 
 
@@ -101,18 +102,9 @@ class StaticCameraPapaNode(Node):
 
                 # Aplicar la mascara a la imagen original
                 self.result = cv.bitwise_and(frame, frame, mask=yellow_mask)
-                center = self.find_center_papa(yellow_mask)
+                self.find_center_papa(yellow_mask)
                 # self.get_logger().info(f"El centro horizontal del objeto se encuentra en: {center}")
 
-                # Publicar el mensaje con lsa coordenadas del respectivo pixel del centro
-                try:
-                    cx, cy = center
-                    msg = Int16MultiArray()
-                    msg.data = [int(cx), int(cy)]
-                    self.publisher.publish(self.publisher.publish(msg))
-                except Exception as e:
-                    # self.get_logger().warning(f"[Static camera papa publisher] No se ha detectado un objeto, no se publican coordenadas")
-                    pass
                 # Mostrar imagen para testeo
                 # cv.imshow('Static Camera Papa Detection', self.result)
                 # cv.waitKey(1)
@@ -168,14 +160,21 @@ class StaticCameraPapaNode(Node):
             bbox = [int(x) for x in box.flatten().tolist()]
             msg.data = bbox
             self.publisher_bbox.publish(msg)
-            self.get_logger().info(f'Enviando mensaje de la bbox de la bolsa')
-
+            # self.get_logger().info(f'Enviando mensaje de la bbox de la bolsa')
+                # Publicar el mensaje con lsa coordenadas del respectivo pixel del centro
+            try:
+                msg = Int16MultiArray()
+                msg.data = [int(cx), int(cy)]
+                self.publisher.publish(self.publisher.publish(msg))
+            except Exception as e:
+                # self.get_logger().warning(f"[Static camera papa publisher] No se ha detectado un objeto, no se publican coordenadas")
+                pass
             cv.imshow('Find center Contorno Papa', self.result)
             cv.waitKey(1)
         except Exception as e:
             self.get_logger().error(f"[Find center error papa]: {e}")
             return False
-        return cx, cy
+        # return cx, cy
         ## Testear y mejorar en laboratorio
 
 
