@@ -156,11 +156,12 @@ class PapaOrientationNode(Node):
                     grados += 180
                 
                 self.get_logger().info(f"GRADOS: {grados}")
-                self.ang_bolsa = grados
+                self.ang_bolsa = int(round(grados))
 
                 try:
                     msg = Int16MultiArray()
-                    msg.data = self.ang_bolsa
+                    msg.data = [self.ang_bolsa]
+                    self.get_logger().info(f'El mensaje que se esta enviando es {self.ang_bolsa}')
                     self.publisher.publish(msg)
                 except Exception as e:
                     self.get_logger().warning(f"No se pudo publicar la orientacion la orientacion: {e}")
