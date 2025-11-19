@@ -42,7 +42,7 @@ class PapaOrientationNode(Node):
         self.processing_thread.start()
 
         # Color bbox
-        self.orange_bbox = None
+        # self.orange_bbox = None
         self.green_bbox = None
         self.red_bbox = None
 
@@ -79,9 +79,12 @@ class PapaOrientationNode(Node):
                 data_color = self.color_bbox_q.get_nowait()
                 data_papa = self.papa_bbox_q.get_nowait() 
 
-                self.orange_bbox = data_color[0:8]
-                self.green_bbox = data_color[8:16]
-                self.red_bbox = data_color[16: 24]
+                # Si se usa el naranjo descomentar esta parte:
+                # self.orange_bbox = data_color[0:8]
+                # self.green_bbox = data_color[8:16]
+                # self.red_bbox = data_color[16: 24]
+                self.green_bbox = data_color[0:8]
+                self.red_bbox = data_color[8 : 16]
                 self.papa_bbox = data_papa
 
                 # self.get_logger().info(f' bbox {self.orange_bbox}, {self.green_bbox}, {self.red_bbox}')
@@ -93,11 +96,7 @@ class PapaOrientationNode(Node):
                 pts = np.array([[int(data_papa[i]), int(data_papa[i+1])] for i in range(0, 8, 2)], dtype=int)
                 green_pts = np.array([[int(self.green_bbox[i]), int(self.green_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
                 red_pts = np.array([[int(self.red_bbox[i]), int(self.red_bbox[i+1])] for i in range(0, 8, 2)], dtype=int)
-                # p1 = np.array([data_papa[0], data_papa[1]])
-                # p2 = np.array([data_papa[2], data_papa[3]])
-                # p3 = np.array([data_papa[4], data_papa[5]])
-                # p4 = np.array([data_papa[6], data_papa[7]]) 
-                # box = np.array([p1, p2, p3, p4])
+
                 center = pts.mean(axis = 0)
                 cx = int(round(float(center[0])))
                 cy = int(round(float(center[1])))
