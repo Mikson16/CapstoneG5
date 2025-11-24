@@ -14,7 +14,7 @@ import numpy as np
 from threading import Thread, Event
 from queue import Queue, Empty, Full
 import traceback
-from math import atan2, degrees
+from math import atan2, degrees, sqrt, pi, acos, cos, tan, sin, atan
 
 class InvKinematicsNode(Node):
     def __init__(self):
@@ -31,6 +31,9 @@ class InvKinematicsNode(Node):
         self.subscription = self.create_subscription(Int16MultiArray, 'bag_coord_trans/new_coords', self.queue_coord_callback, 10)
 
         # Parametros
+        self.coords = None # coordenadas x, y del centro de la bolsa
+        self.largo_1 = 40.8 # cm  #  Largo del eslabon 1
+        self.largo_2 = 21.0 #cm  # Largo del eslabon 2
 
         # Armar hilos
         self.processing_thread = Thread(target = self.processing_loop, daemon = False)
@@ -53,8 +56,18 @@ class InvKinematicsNode(Node):
         while not self.stop_event.is_set():
             try:
                 # obtener data de la cola
-                data_coord = self.bag_coord_q.get_nowait()
+                self.coords = self.bag_coord_q.get_nowait()
+                x = self.coords[0]
+                y = self.coords[1]
 
+                h = sqrt(x**2 + y**2)
+                beta = acos((largo_1**2 + h**2 + largo_2 ** 2) / (2 * largo_1 * h))
+                gamma = atan(x / y)
+
+                q1 = gamma - beta # Angulo de base / eslabon 1
+                q2 = acos(( h**2 - largo_1**2 - largo_2**2) / 2*largo_1*largo_2) # angulo segundo eslabon
+
+                self.get_logger().info(f'Angulos obtenidos {q1, q2}, para las coordenadas objetivo {x, y}')
             except Empty:
                 pass # completar
             except Exception as e:

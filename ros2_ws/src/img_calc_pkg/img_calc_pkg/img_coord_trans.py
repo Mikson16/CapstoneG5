@@ -54,6 +54,7 @@ class BagCoordTransNode(Node):
             try:
                 # obtener data de la cola
                 data_coord = self.bag_coord_q.get_nowait()
+                # Aqui hay que hacer la transformacion de los pixeles a las coordenadas del robot
 
             except Empty:
                 pass # completar
