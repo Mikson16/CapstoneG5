@@ -27,6 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'papa_orientation = img_calc_pkg.papa_orientation:main',
+            'img_coord_trans = img_calc_pkg.img_coord_trans:main'
         ],
     },
 )
