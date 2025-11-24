@@ -62,6 +62,7 @@ class InvKinematicsNode(Node):
 
                 h = sqrt(x**2 + y**2)
                 beta = acos((largo_1**2 + h**2 + largo_2 ** 2) / (2 * largo_1 * h))
+                #beta = acos((largo_1**2 + h**2 + largo_2 ** 2) / (2 * largo_1 * h))
                 gamma = atan(x / y)
 
                 q1 = gamma - beta # Angulo de base / eslabon 1
