@@ -10,8 +10,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int16MultiArray
-import cv2 as cv
-from cv_bridge import CvBridge
+# import cv2 as cv
+# from cv_bridge import CvBridge
 from threading import Thread
 from time import sleep
 import numpy as np
@@ -185,9 +185,9 @@ class PapaOrientationNode(Node):
         """
         self.get_logger().info('Deteniendo hilos de procesamiento')
         self.stop_event.set()
-        self.processing_thread.join(timeout=1.0)
         try:
-            cv2.destroyAllWindows()
+            self.processing_thread.join(timeout=1.0)
+            # cv.destroyAllWindows()
         except:
             pass
         self.get_logger().info('Hilos detenidos')          
