@@ -43,8 +43,6 @@ class InvKinematicsNode(Node):
         self.processing_thread = Thread(target = self.processing_loop, daemon = False)
         self.processing_thread.start()
 
-
-
     def queue_coord_callback(self, msg):
         try:
             data = msg.data
@@ -102,6 +100,12 @@ class InvKinematicsNode(Node):
                 if q2 < - self.ang_desp_max_base or q2 > self.ang_desp_max_base:
                     self.get_logger().warning(f'Angulo q1 se sale de los limites {q2}')
                     continue
+
+                # Enviar los datos de los angulos al nodo colector del serial
+                msg = Int16MultiArray()
+                data = [int(round(q1)), int(round(q2))]
+                msg.data = data
+                self.publisher.publish(msg)
 
 
                 self.get_logger().info(f'Angulos obtenidos {q1, q2}, para las coordenadas objetivo {x, y}')
