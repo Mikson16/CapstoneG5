@@ -1,4 +1,4 @@
-///// LIBRERIAS //////////////////
+///// LIBRERIAS ////////////////// ORDEN;M1:XX;M2:XX;S:XX
 #include <LiquidCrystal_I2C.h>
 #include <TimerOne.h>
 #include <TimerThree.h>
