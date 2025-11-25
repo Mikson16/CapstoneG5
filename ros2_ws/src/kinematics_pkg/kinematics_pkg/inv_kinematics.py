@@ -34,6 +34,10 @@ class InvKinematicsNode(Node):
         self.coords = None # coordenadas x, y del centro de la bolsa
         self.largo_1 = 40.8 # cm  #  Largo del eslabon 1
         self.largo_2 = 21.0 #cm  # Largo del eslabon 2
+        self.origen_base = 0.0 # None # en radianes
+        self.origen_eslabon = 0.0 # None # en radianes
+        self.ang_desp_max_eslabon = np.pi * 3/2
+        self.ang_desp_max_base = np.pi * 3/2
 
         # Armar hilos
         self.processing_thread = Thread(target = self.processing_loop, daemon = False)
@@ -60,13 +64,45 @@ class InvKinematicsNode(Node):
                 x = self.coords[0]
                 y = self.coords[1]
 
-                h = sqrt(x**2 + y**2)
-                beta = acos((largo_1**2 + h**2 + largo_2 ** 2) / (2 * largo_1 * h))
-                #beta = acos((largo_1**2 + h**2 + largo_2 ** 2) / (2 * largo_1 * h))
-                gamma = atan(x / y)
+                h = np.sqrt(x*2 + y*2)
+                if h > (self.largo_1 + self.largo_2) or h < np.abs(self.largo_1 - self.largo_2):
+                    self.get_logger().warning(f'Coordenada fuera de rango: {h}')
+                    continue # continuar para uqe se salte esta iteracion
+                
+                # q2 angulo eslabon 2
+                cos_q2_int = (self.largo_1*2 + self.largo_2 * 2 - h*2) / (2 * self.largo_1 * self.largo_2)
+                cos_q2_int = np.clip(cos_q2_int, -1.0, 1.0)
+                
+                q2_interno = np.arccos(cos_q2_int)
 
-                q1 = gamma - beta # Angulo de base / eslabon 1
-                q2 = acos(( h**2 - largo_1**2 - largo_2**2) / 2*largo_1*largo_2) # angulo segundo eslabon
+                #q2 real
+
+                q2 = np.pi - q2_interno
+
+                # q1 angulo de la base
+                gamma = np.arctan(y, x)
+
+                # Ley de cosenos
+
+                if h == 0:
+                    self.get_logger().warning(f'Singularidad en el origen, h = 0')
+                    continue
+                cos_beta = (self.largo_1 * 2 - self.largo_2 * 2) / (2 * self.largo_1 * h)
+                cos_beta = np.clip(cos_beta, -1.0, 1.0)
+                beta = np.arccos(cos_beta)
+
+                q1 = gamm - beta
+
+                q2 = q2 + self.origen_eslabon
+                q1 = q1 + self.origen_base
+
+                if q1 < - self.ang_desp_max_base or q1 > self.ang_desp_max_base:
+                    self.get_logger().warning(f'Angulo q1 se sale de los limites {q1}')
+                    continue
+                if q2 < - self.ang_desp_max_base or q2 > self.ang_desp_max_base:
+                    self.get_logger().warning(f'Angulo q1 se sale de los limites {q2}')
+                    continue
+
 
                 self.get_logger().info(f'Angulos obtenidos {q1, q2}, para las coordenadas objetivo {x, y}')
             except Empty:
