@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 """
-Este nodo debe publicar las coordenadas por un topico para que el nodo de comunicacion, se las envie al arduino
+Este nodo debe colectar la informacion que venga de los demas nodos y mandarsela al nodo de comunicacion serial
 """
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Int16MultiArray
 from threading import Thread, Event
 from time import sleep
 
@@ -21,6 +21,12 @@ class ArduinoCoordPubNode(Node):
         # Publicadores y Subscriptores
 
         self.pub = self.create_publisher(String, 'arduino/command/coord', 10)
+
+        self.kinematics_sub = self.create_subscription(Int16MultiArray, 'inv_kinematics/angles', self.kinematics_callback, 10) # mensaje de la cinematica
+
+        self.emergency_sub = self.create_subscription(Int16MultiArray, 'emergency/msg', self.emergency_callback, 10) # mensaje del paro de emergencia de software
+
+        self.orientation_sub = self.create_subscription(Int16MultiArray, )
 
 
         self.input_thread =  Thread(target=self.get_coord, daemon=True)
