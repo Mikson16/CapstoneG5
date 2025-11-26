@@ -53,6 +53,7 @@ class ArduinoCoordPubNode(Node):
     def emergency_callback(self, msg):
         try:
             data = list(msg.data)
+            self.get_logger().info(f' esta llegando este mensaje {data}, msg {msg}')
             if data[0] == 1:
                 # estamos en una emergencia, de momento si se para, se para el sistema completo y hay que reiniciar el sistema completo
                 emergency_msg = String()
