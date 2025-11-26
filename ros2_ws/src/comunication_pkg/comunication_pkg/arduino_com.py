@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Este nodo debera levantar la comunicacion serial con el Arduino.
+Este nodo debera levantar la comunicacion serial con el Arduino y solo mandar mensajes ya procesados.
 """
 
 import rclpy
@@ -18,8 +18,9 @@ class ArduinoComNode(Node):
         super().__init__('arduino_com_node')
 
     # agregar subscriptores y publicadores cuando sea necesario
-        self.create_subscription(String, 'arduino/command/coord', self.coord_command_callback, 10) # esta suscripcion debe recibir un mensaje de las coordenadas a traves del topico 
-
+        self.subscription = self.create_subscription(String, 'arduino/command/coord', self.coord_command_callback, 10) # esta suscripcion debe recibir un mensaje de las coordenadas a traves del topico 
+        
+        self.emergency_sub = self.create_subscription(String, 'arduino/command/emergency', self.emergency_callback, 10)
         # Atributo de mensaje
         self.msg = None
         self.baudrate = baudrate
@@ -45,12 +46,20 @@ class ArduinoComNode(Node):
         self._stop_event = Event()
 
         
-        self.serial_pub_thread = Thread(target=self.send_serial_msg, name = 'serial_pub_thread') # de momento no sera daemon
-        self.serial_pub_thread.start()
+        # self.serial_pub_thread = Thread(target=self.send_serial_msg, name = 'serial_pub_thread') # de momento no sera daemon
+        # self.serial_pub_thread.start()
         # Usando un timer
         # self.timer = self.create_timer(1.0, self.send_serial_msg)   
         # self.send_serial_msg()
 
+    def emergency_callback(self, msg):
+        try:
+            data = str(msg.data) + '\n'
+            self.ser.write(data.encode('utf-8'))
+            self.get_logger().info(f'Enviando senal de paro de emergencia')
+        except Exception as e:
+            self.get_logger().warning(f'Error al mandar mensaje de emergencia por serial')
+        
 
     def send_serial_msg(self):
         # pedir el mensaje por consola

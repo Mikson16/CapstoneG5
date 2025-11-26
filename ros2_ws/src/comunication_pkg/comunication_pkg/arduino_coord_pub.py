@@ -7,6 +7,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Int16MultiArray
 from threading import Thread, Event
+from queue import Queue, Empty, Full
+import traceback
 from time import sleep
 
 class ArduinoCoordPubNode(Node):
@@ -16,23 +18,53 @@ class ArduinoCoordPubNode(Node):
         self.get_logger().info('[Arduino Coord Pub Node]: ha sido iniciado')
 
 
+        # Atributos
+        # self.emergency = 0 # Si este atributo se vuelve 1, mandar mensaje de emergencia al comunicador serial inmediatamente
+
+        # colas
+        self.kinematics_q = Queue(maxsize=1)
+        self.orientation_q = Queue(maxsize=1)
+        # Hilos
+        
+
         # Lista de mensajes de prueba
         self.test_msg_serial_list = ['0', '1', 'holaaa', '2324', '67', '1726861387', '333333', '29387928', 'aaaaa', 'kjcbhawkuckbshdc', '1234567890987654321', 'qwertyuioolkjhgfdsazxcvbn']
         # Publicadores y Subscriptores
 
         self.pub = self.create_publisher(String, 'arduino/command/coord', 10)
-
-        self.kinematics_sub = self.create_subscription(Int16MultiArray, 'inv_kinematics/angles', self.kinematics_callback, 10) # mensaje de la cinematica
+        self.emergency_pub = self.create_publisher(String, 'arduino/command/emergency', 10)
 
         self.emergency_sub = self.create_subscription(Int16MultiArray, 'emergency/msg', self.emergency_callback, 10) # mensaje del paro de emergencia de software
 
-        self.orientation_sub = self.create_subscription(Int16MultiArray, )
+        self.kinematics_sub = self.create_subscription(Int16MultiArray, 'inv_kinematics/angles', self.kinematics_callback, 10) # mensaje de la cinematica
+
+
+        self.orientation_sub = self.create_subscription(Int16MultiArray, 'orientation/papa_orientation', self.orientation_callback, 10)
 
 
         self.input_thread =  Thread(target=self.get_coord, daemon=True)
         self.input_thread.start()
     
-    
+    def emergency_callback(self, msg):
+        try:
+            data = list(msg.data)
+            if data[0] == 1:
+                # estamos en una emergencia, de momento si se para, se para el sistema completo y hay que reiniciar el sistema completo
+                emergency_msg = String()
+                emergency_msg.data = 'detenerse;M1:XX;M2:XX;S:XX' 
+                self.emergency_pub.publish(emergency_msg)
+                self.get_logger().warning(f'Se ha activado un paro de emergencia, enviando al nodo serial la orden')
+        except Exception as e:
+            self.get_logger().warning(f'Error al enviar senal de emergencia')
+        return
+
+    def kinematics_callback(self, msg):
+        pass
+
+    def orientation_callback(self, msg):
+        pass
+
+
     def get_coord(self):
         """
         De momento pide un input para mandar por consola una coordenada
