@@ -6,7 +6,7 @@ Este nodo debe colectar la informacion que venga de los demas nodos y mandarsela
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Int16MultiArray
-from threading import Thread, Event
+from threading import Thread, Event, Condition
 from queue import Queue, Empty, Full
 import traceback
 from time import sleep
@@ -21,14 +21,19 @@ class ArduinoCoordPubNode(Node):
         # Atributos
         # self.emergency = 0 # Si este atributo se vuelve 1, mandar mensaje de emergencia al comunicador serial inmediatamente
 
-        # colas
-        self.kinematics_q = Queue(maxsize=1)
-        self.orientation_q = Queue(maxsize=1)
+        # colas y condiciones
+        # self.kinematics_q = Queue(maxsize=1)
+        # self.orientation_q = Queue(maxsize=1)
+        self._cv = Condition()
+        self.last_kin = None
+        self.last_ori = None
+        self.stop_event = Event()
         # Hilos
-        
+        self.processing_thread = Thread(target=self.processing_loop, daemon=False)
+        self.processing_thread.start()
 
         # Lista de mensajes de prueba
-        self.test_msg_serial_list = ['0', '1', 'holaaa', '2324', '67', '1726861387', '333333', '29387928', 'aaaaa', 'kjcbhawkuckbshdc', '1234567890987654321', 'qwertyuioolkjhgfdsazxcvbn']
+        # self.test_msg_serial_list = ['0', '1', 'holaaa', '2324', '67', '1726861387', '333333', '29387928', 'aaaaa', 'kjcbhawkuckbshdc', '1234567890987654321', 'qwertyuioolkjhgfdsazxcvbn']
         # Publicadores y Subscriptores
 
         self.pub = self.create_publisher(String, 'arduino/command/coord', 10)
@@ -42,8 +47,8 @@ class ArduinoCoordPubNode(Node):
         self.orientation_sub = self.create_subscription(Int16MultiArray, 'orientation/papa_orientation', self.orientation_callback, 10)
 
 
-        self.input_thread =  Thread(target=self.get_coord, daemon=True)
-        self.input_thread.start()
+        # self.input_thread =  Thread(target=self.get_coord, daemon=True)
+        # self.input_thread.start()
     
     def emergency_callback(self, msg):
         try:
@@ -54,36 +59,94 @@ class ArduinoCoordPubNode(Node):
                 emergency_msg.data = 'detenerse;M1:XX;M2:XX;S:XX' 
                 self.emergency_pub.publish(emergency_msg)
                 self.get_logger().warning(f'Se ha activado un paro de emergencia, enviando al nodo serial la orden')
+                self.stop_event.set() #Paralizo los hilos, hay que reiniciar el sistema
         except Exception as e:
-            self.get_logger().warning(f'Error al enviar senal de emergencia')
+            self.get_logger().warning(f'Error al enviar senal de emergencia: {e}')
         return
 
     def kinematics_callback(self, msg):
-        pass
+        try:
+            data = list(msg.data)
+        #     self.kinematics_q.put_nowait()
+        # except Full:
+        #     self.get_logger().warning(f'La cola de las coordenadas de cinematica esta llena')
+            with self._cv:
+                self.last_kin = data
+                self._cv.notify()
+        except Exception as e:
+            self.get_logger().warning(f'Cola de cinematica con problema: {e}')
+            self.get_logger().debug(traceback.format_exc())  
 
     def orientation_callback(self, msg):
-        pass
+        try:
+            data = list(msg.data)
+        #     self.orientation_q.put_nowait()
+        # except Full:
+        #     self.get_logger().warning(f'La cola de orientacion esta llena')
+            with self._cv:
+                self.last_ori = data
+                self._cv.notify()        
+        except Exception as e:
+            self.get_logger().warning(f'Cola de orientacion con problema: {e}')
+            self.get_logger().debug(traceback.format_exc())  
 
+    def processing_loop(self):
+        while not self.stop_event.is_set():
+            with self._cv:
+                # esperar a las 2 coordenadas o al stop_event
+                self._cv.wait_for(lambda:(self.last_kin is not None and self.last_ori is not None) or self.stop_event.is_set(), timeout=0.5)
+                if self.stop_event.is_set():
+                    break
+                kin = self.last_kin
+                ori = self.last_ori
 
-    def get_coord(self):
+                self.last_kin = None
+                self.last_ori = None
+
+            # Procesar para el mensaje
+            try:
+                # Angulo de la cinematica
+                theta_1 = kin[0]
+                theta_2 = kin[1]
+                gamma = ori[0]
+                coord_msg = String()
+                coord_msg.data = f'moverse;M1:{theta_1};M2:{theta_2}:S:{gamma}'
+                self.pub.publish(coord_msg)
+                self.get_logger().info(f'Enviando comando al comunicador serial')
+            except Exception as e:
+                self.get_logger().warning(f'Error al enviar senal de emergencia: {e}')
+    
+    def destroy_threads(self):
         """
-        De momento pide un input para mandar por consola una coordenada
-        """ 
-        # Contador para testeo de mensaje
-        ct = 0
-        while rclpy.ok():
-            msg = String()
-            msg.data = self.test_msg_serial_list[ct]
-            self.pub.publish(msg)
+        Destruir todos los hilos antes de destruir el nodo
+        """
+        self.get_logger().info('Deteniendo hilos de procesamiento')
+        self.stop_event.set()
+        try:
+            self.processing_thread.join(timeout=1.0)
+        except:
+            pass
+        self.get_logger().info('Hilos detenidos') 
 
-            ct +=1
-            if ct >= len(self.test_msg_serial_list):
-                ct = 0
+    # def get_coord(self):
+    #     """
+    #     De momento pide un input para mandar por consola una coordenada
+    #     """ 
+    #     # Contador para testeo de mensaje
+    #     ct = 0
+    #     while rclpy.ok():
+    #         msg = String()
+    #         msg.data = self.test_msg_serial_list[ct]
+    #         self.pub.publish(msg)
 
-            #!TODO Nota para el yo de mañana que cansado se olvidara de lo que hizo
-            """
-            Recibir los mensajes por el input de consola es un cacho, seria mejor que para una demostracion, hacer una rutina de coordenadas en una lista y recorrerla mientras se envian, ambos nodos deberian funcionar a traves de un run nodo y no con el launch
-            """
+    #         ct +=1
+    #         if ct >= len(self.test_msg_serial_list):
+    #             ct = 0
+
+    #         #!TODO Nota para el yo de mañana que cansado se olvidara de lo que hizo
+    #         """
+    #         Recibir los mensajes por el input de consola es un cacho, seria mejor que para una demostracion, hacer una rutina de coordenadas en una lista y recorrerla mientras se envian, ambos nodos deberian funcionar a traves de un run nodo y no con el launch
+            # """
 
 
 def main(args=None):
