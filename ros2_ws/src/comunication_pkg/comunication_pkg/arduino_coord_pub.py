@@ -52,28 +52,33 @@ class ArduinoCoordPubNode(Node):
     
     def emergency_callback(self, msg):
         try:
-            data = list(msg.data)
-            self.get_logger().info(f' esta llegando este mensaje {data}, msg {msg}')
-            if data[0] == 1:
+            self.get_logger().info(f'El largo del mensaje es {len(msg.data)} y el mensaje {msg}')
+            if msg.data is not None:
+                data = list(msg.data)
+                self.get_logger().info(f' esta llegando este mensaje {data}, msg {msg}')
+                if data[0] == 1:
                 # estamos en una emergencia, de momento si se para, se para el sistema completo y hay que reiniciar el sistema completo
-                emergency_msg = String()
-                emergency_msg.data = 'detenerse;M1:XX;M2:XX;S:XX' 
-                self.emergency_pub.publish(emergency_msg)
-                self.get_logger().warning(f'Se ha activado un paro de emergencia, enviando al nodo serial la orden')
-                self.stop_event.set() #Paralizo los hilos, hay que reiniciar el sistema
+                    emergency_msg = String()
+                    emergency_msg.data = 'detenerse;M1:XX;M2:XX;S:XX' 
+                    self.emergency_pub.publish(emergency_msg)
+                    self.get_logger().warning(f'Se ha activado un paro de emergencia, enviando al nodo serial la orden, reiniciar sistema')
+                    self.stop_event.set() #Paralizo los hilos, hay que reiniciar el sistema
+            else:
+                return
         except Exception as e:
             self.get_logger().warning(f'Error al enviar senal de emergencia: {e}')
-        return
+            return
 
     def kinematics_callback(self, msg):
         try:
             data = list(msg.data)
+            self.get_logger().info(f' El mensaje que llego a la cinematica es: {data}')
         #     self.kinematics_q.put_nowait()
         # except Full:
         #     self.get_logger().warning(f'La cola de las coordenadas de cinematica esta llena')
             with self._cv:
                 self.last_kin = data
-                self._cv.notify()
+                self._cv.notify_all()
         except Exception as e:
             self.get_logger().warning(f'Cola de cinematica con problema: {e}')
             self.get_logger().debug(traceback.format_exc())  
@@ -81,12 +86,13 @@ class ArduinoCoordPubNode(Node):
     def orientation_callback(self, msg):
         try:
             data = list(msg.data)
+            self.get_logger().info(f' El mensaje que llego a la orientacion es: {data}')
         #     self.orientation_q.put_nowait()
         # except Full:
         #     self.get_logger().warning(f'La cola de orientacion esta llena')
             with self._cv:
                 self.last_ori = data
-                self._cv.notify()        
+                self._cv.notify_all()        
         except Exception as e:
             self.get_logger().warning(f'Cola de orientacion con problema: {e}')
             self.get_logger().debug(traceback.format_exc())  
@@ -95,27 +101,31 @@ class ArduinoCoordPubNode(Node):
         while not self.stop_event.is_set():
             with self._cv:
                 # esperar a las 2 coordenadas o al stop_event
-                self._cv.wait_for(lambda:(self.last_kin is not None and self.last_ori is not None) or self.stop_event.is_set(), timeout=0.5)
+                ambos = self._cv.wait_for(lambda:(self.last_kin is not None and self.last_ori is not None) or self.stop_event.is_set(), timeout=0.5)
                 if self.stop_event.is_set():
                     break
+                if not ambos:
+                    continue
                 kin = self.last_kin
                 ori = self.last_ori
 
                 self.last_kin = None
                 self.last_ori = None
+                self.get_logger().info(f'Loop de procesamiento, las coordenadas que hay son {kin}, {ori}')
 
             # Procesar para el mensaje
             try:
-                # Angulo de la cinematica
-                theta_1 = kin[0]
-                theta_2 = kin[1]
-                gamma = ori[0]
-                coord_msg = String()
-                coord_msg.data = f'moverse;M1:{theta_1};M2:{theta_2}:S:{gamma}'
-                self.pub.publish(coord_msg)
-                self.get_logger().info(f'Enviando comando al comunicador serial')
+                if kin is not None and ori is not None:
+                    # Angulo de la cinematica
+                    theta_1 = kin[0]
+                    theta_2 = kin[1]
+                    gamma = ori[0]
+                    coord_msg = String()
+                    coord_msg.data = f'moverse;M1:{theta_1};M2:{theta_2};S:{gamma}'
+                    self.pub.publish(coord_msg)
+                    self.get_logger().info(f'Enviando comando al comunicador serial')
             except Exception as e:
-                self.get_logger().warning(f'Error al enviar senal de emergencia: {e}')
+                self.get_logger().warning(f'Error al enviar mensaje de cinematica: {e}')
     
     def destroy_threads(self):
         """
