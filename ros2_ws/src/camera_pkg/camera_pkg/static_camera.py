@@ -35,7 +35,7 @@ class StaticCameraNode(Node):
         ret, frame = self.capture.read()
         if ret:
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
-            cv2.imshow('Static Camera', frame)
+            cv2.imshow('Static Camera Node', frame)
             cv2.waitKey(1)
             self.publisher.publish(msg)
         else:

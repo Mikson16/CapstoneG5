@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'camera_pkg'
+package_name = 'img_calc_pkg'
 
 setup(
     name=package_name,
@@ -10,14 +10,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        #instalar launch files para que ros2 los encuentre
-        ('share/' + package_name + '/launch', ['launch/launch_static_camera.py']),
+        # instalar launch files para que ros2 los encuentre
+        ('share/' + package_name + '/launch', ['launch/launch_papa_orientation.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='joseq',
-    maintainer_email='joseq@todo.todo',
-    description='Camera package',
+    maintainer_email='jquimi@uc.cl',
+    description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
         'test': [
@@ -26,9 +26,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'static_camera = camera_pkg.static_camera:main',
-            'static_camera_papa = camera_pkg.static_camera_papa:main',
-            'static_camera_robot = camera_pkg.static_camera_robot:main',
+            'papa_orientation = img_calc_pkg.papa_orientation:main',
         ],
     },
 )

@@ -9,7 +9,7 @@ def generate_launch_description():
             executable='static_camera', 
             name='static_camera_node',
             output='screen',
-            emulate_tty=True,
+            emulate_tty=True, # si necesito una salida interacitva o interaccion con terminal usar true, sino puedo colocarlo en false
             parameters=[{'headless': False}] # Cambiar a True para no desplegar las ventanas
         ),
 
@@ -20,5 +20,13 @@ def generate_launch_description():
             name='static_camera_papa_node',
             output='screen',
             emulate_tty=True,
+        ),
+        
+        Node(
+            package='camera_pkg',
+            executable='static_camera_robot',
+            name='static_camera_robot_node',
+            output='screen',
+            emulate_tty= True,
         ),
     ])
