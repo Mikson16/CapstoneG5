@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         #instalar launch files para que ros2 los encuentre
         ('share/' + package_name + '/launch', ['launch/launch_static_camera.py']),
+        ('share/' + package_name + '/launch', ['launch/launch_static_emergency_test.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,6 +30,7 @@ setup(
             'static_camera = camera_pkg.static_camera:main',
             'static_camera_papa = camera_pkg.static_camera_papa:main',
             'static_camera_robot = camera_pkg.static_camera_robot:main',
+            'static_camera_emergency = camera_pkg.static_camera_emergency:main'
         ],
     },
 )
