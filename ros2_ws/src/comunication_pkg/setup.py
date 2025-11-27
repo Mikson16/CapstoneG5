@@ -10,6 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        #Instalar launch files para que ros2 los encuentre
+        ('share/' + package_name + '/launch', ['launch/launch_arduino_com.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,6 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'arduino_com = comunication_pkg.arduino_com:main',
+            'arduino_coord_pub = comunication_pkg.arduino_coord_pub:main',
         ],
     },
 )
