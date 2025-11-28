@@ -16,6 +16,7 @@ from time import sleep
 import numpy as np
 from threading import Thread, Event
 from queue import Queue, Empty
+import traceback
 
 class StaticCameraEmergencyNode(Node):
     def __init__(self):
@@ -92,6 +93,19 @@ class StaticCameraEmergencyNode(Node):
                     centroids.append({'contour': cnt, 'area': area, 'cx': cx, 'cy': cy})
                     if area >= self.min_area:
                         valids.append({'contour': cnt, 'area': area, 'cx': cx, 'cy': cy})
+                
+                if valids:
+                    max_area = max(it['area'] for it in valids)
+                    if max_area >= self.min_area:
+                        try:
+                            msg = Int16MultiArray()
+                            msg.data = [1]
+                            self.publisher.publish(msg)
+                            self.get_logger().warning(f'Publicada señal de emergencia, area={int(max_area)}')
+                        except Exception as e:
+                            self.get_logger().warning(f'Error publicando emergencia: {type(e).__name__}: {e}')
+
+                # Descomentar solo para visualizacion
                 # dibujar todos los contornos y centroides (info)
                 cv.drawContours(mask, contours, -1, (0,255,0), 2)
                 for it in centroids:
