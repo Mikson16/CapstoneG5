@@ -95,13 +95,13 @@ class StaticCameraEmergencyNode(Node):
                         valids.append({'contour': cnt, 'area': area, 'cx': cx, 'cy': cy})
                 
                 if valids:
-                    max_area = max(it['area'] for it in valids)
-                    if max_area >= self.min_area:
+                    min_area = min(it['area'] for it in valids)
+                    if min_area >= self.min_area:
                         try:
                             msg = Int16MultiArray()
                             msg.data = [1]
                             self.publisher.publish(msg)
-                            self.get_logger().warning(f'Publicada señal de emergencia, area={int(max_area)}')
+                            self.get_logger().warning(f'Publicada señal de emergencia, area={int(min_area)}')
                         except Exception as e:
                             self.get_logger().warning(f'Error publicando emergencia: {type(e).__name__}: {e}')
 
