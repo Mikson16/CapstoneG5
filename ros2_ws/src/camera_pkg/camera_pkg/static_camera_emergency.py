@@ -22,6 +22,8 @@ class StaticCameraEmergencyNode(Node):
         super().__init__('static_camera_emergency_node')
         self.get_logger().info(f'[Static Camera Emergency Node]: ha sido iniciado')
 
+        # Parametros
+        self.min_area = 400 # el area en pixeles para considerar una emergencia
         # Colas
         self.img_q = Queue(maxsize=5)
         self.stop_event = Event()
@@ -63,9 +65,7 @@ class StaticCameraEmergencyNode(Node):
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
 
                 
-                    # Naranjo
-                # Se agrega el naranjo y se cambia por el azul ya que la manguera de la bomba es azul
-                # DESCOMENTAR EN CASO QUE SE USE EL NARANJO
+                # Naranjo
                 lower_orange = np.array([12,  120,  120])
                 upper_orange = np.array([20, 255, 255])
 
@@ -78,6 +78,31 @@ class StaticCameraEmergencyNode(Node):
 
                 if not contours:
                     continue
+                # calcular area y momentos para cada contorno
+                areas = [abs(cv.contourArea(c)) for c in contours]
+                centroids = []
+                valids = []
+                for cnt, area in zip(contours, areas):
+                    M = cv.moments(cnt)
+                    if M.get('m00', 0) != 0:
+                        cx = int(M['m10'] / M['m00'])
+                        cy = int(M['m01'] / M['m00'])
+                    else:
+                        cx, cy = 0, 0
+                    centroids.append({'contour': cnt, 'area': area, 'cx': cx, 'cy': cy})
+                    if area >= self.min_area:
+                        valids.append({'contour': cnt, 'area': area, 'cx': cx, 'cy': cy})
+                # dibujar todos los contornos y centroides (info)
+                cv.drawContours(mask, contours, -1, (0,255,0), 2)
+                for it in centroids:
+                    cv.circle(mask, (it['cx'], it['cy']), 4, (255,0,0), -1)
+                    cv.putText(mask, f'{int(it["area"])}', (it['cx']+5, it['cy']-5),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+                # destacar contornos que superen min_area (posible emergencia)
+                for it in valids:
+                    cv.circle(mask, (it['cx'], it['cy']), 6, (0,0,255), -1)
+                    cv.putText(mask, f'EMG {int(it["area"])}', (it['cx']+5, it['cy']+15),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
                 cv.imshow('find orange', mask)
                 cv.waitKey(1)
             except Empty:
