@@ -143,8 +143,13 @@ class StaticCameraRobotNode(Node):
 
 
                 # Verde
-                lower_green = np.array([45, 85, 85])
-                upper_green = np.array([85, 255, 255])
+                # lower_green = np.array([45, 85, 85])
+                # upper_green = np.array([85, 255, 255])
+                
+                
+                # ! Umbrales de testeo fuera del lab
+                lower_green = np.array([60, 85, 85])
+                upper_green = np.array([80, 255, 255])
 
                 self.green_mask = cv.inRange(frame_hsv, lower_green, upper_green)
 
