@@ -34,6 +34,9 @@ class StaticCameraNode(Node):
     def show_capture_callback(self):
         ret, frame = self.capture.read()
         if ret:
+            # Acortar la imagen para obtener solo el area de trabajo
+            
+            self.get_logger().info(f'El tamaño de la imagen es {frame.shape}')
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             cv2.imshow('Static Camera Node', frame)
             cv2.waitKey(1)
