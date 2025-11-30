@@ -67,8 +67,8 @@ class StaticCameraEmergencyNode(Node):
 
                 
                 # Naranjo
-                lower_orange = np.array([12,  120,  120])
-                upper_orange = np.array([20, 255, 255])
+                lower_orange = np.array([15,  130,  130])
+                upper_orange = np.array([18, 255, 255])
 
                 orange_mask = cv.inRange(frame_hsv, lower_orange, upper_orange)
 
