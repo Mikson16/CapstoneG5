@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import time
 
 class SCARA_Visualizer:
-    def _init_(self, L1, L2):
+    def __init__(self, L1, L2):
         self.L1 = L1
         self.L2 = L2
         
@@ -144,7 +144,7 @@ class SCARA_Visualizer:
         print("   Movimiento completado.\n")
 
 # --- BLOQUE PRINCIPAL ---
-if _name_ == "_main_":
+if __name__ == "__main__":
     # 1. Configuración del Robot
     l1_input = 1.0
     l2_input = 0.8

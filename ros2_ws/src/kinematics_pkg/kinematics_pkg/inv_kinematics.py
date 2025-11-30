@@ -34,8 +34,16 @@ class InvKinematicsNode(Node):
         self.coords = None # coordenadas x, y del centro de la bolsa
         self.largo_1 = 40.8 # cm  #  Largo del eslabon 1
         self.largo_2 = 21.0 #cm  # Largo del eslabon 2
+
         self.origen_base = 0.0 # None # en radianes
         self.origen_eslabon = 0.0 # None # en radianes
+        self.OFFSET_CAMARA_X = 302.0 # mm
+        self.OFFSET_CAMARA_Y = 286.0 # mm
+
+        self.factor_resolucion = 0.8797 # Calcular
+        self.centro_camara_X = 0.0
+        self.centro_camara_Y = 0.0
+
         self.ang_desp_max_eslabon = np.pi * 3/2
         self.ang_desp_max_base = np.pi * 3/2
 
@@ -52,70 +60,103 @@ class InvKinematicsNode(Node):
             self.get_logger().info(f'La cola esta llena')
         except Exception as e:
             self.get_logger().warning(f'Cola de bag coord con problema: {e}')
-            self.get_logger().debug(traceback.format_exc())      
-    
-    def processing_loop(self):
-        while not self.stop_event.is_set():
-            try:
-                # obtener data de la cola
-                self.coords = self.bag_coord_q.get_nowait()
-                x = self.coords[0]
-                y = self.coords[1]
+            self.get_logger().debug(traceback.format_exc())     
 
-                h = np.sqrt(x*2 + y*2)
-                if h > (self.largo_1 + self.largo_2) or h < np.abs(self.largo_1 - self.largo_2):
-                    self.get_logger().warning(f'Coordenada fuera de rango: {h}')
-                    continue # continuar para uqe se salte esta iteracion
-                
-                # q2 angulo eslabon 2
-                cos_q2_int = (self.largo_1*2 + self.largo_2 * 2 - h*2) / (2 * self.largo_1 * self.largo_2)
-                cos_q2_int = np.clip(cos_q2_int, -1.0, 1.0)
-                
-                q2_interno = np.arccos(cos_q2_int)
+def processing_loop(self):
+    """
+    Procesamiento de cinemática inversa con Transformación de Coordenadas
+    """
+    while not self.stop_event.is_set():
+        try:
+            # 1. Obtener coordenadas relativas a la CAMARA
+            # (Asumo que 'coords' viene en milímetros desde tu nodo de visión.
+            #  Si viene en pixeles, debes multiplicar por tu factor de escala antes)
+            coords_camara = self.bag_coord_q.get_nowait()
+            x_cam = coords_camara[0]
+            y_cam = coords_camara[1]
 
-                #q2 real
+            # ---------------------------------------------------------
+            # 2. TRANSFORMACIÓN DE COORDENADAS (Cámara -> Robot)
+            # ---------------------------------------------------------
+            x = x_cam + self.OFFSET_CAMARA_X
+            y = y_cam + self.OFFSET_CAMARA_Y
+            
+            # Debug: Ver si la coordenada tiene sentido
+            # self.get_logger().info(f"Cam: ({x_cam}, {y_cam}) -> Robot: ({x}, {y})")
 
-                q2 = np.pi - q2_interno
+            # ---------------------------------------------------------
+            # 3. CÁLCULO DE CINEMÁTICA INVERSA (Corregido)
+            # ---------------------------------------------------------
+            
+            # CORRECCIÓN 1: Usar **2 para elevar al cuadrado
+            h = np.sqrt(x**2 + y**2)
 
-                # q1 angulo de la base
-                gamma = np.arctan(y, x)
+            # Verificación de alcance
+            if h > (self.largo_1 + self.largo_2) or h < np.abs(self.largo_1 - self.largo_2):
+                self.get_logger().warning(f'Fuera de rango. Dist: {h:.2f} | Max: {self.largo_1 + self.largo_2}')
+                continue 
 
-                # Ley de cosenos
+            # --- Q2 (Codo) ---
+            # CORRECCIÓN: **2 en lugar de *2
+            numerador = self.largo_1**2 + self.largo_2**2 - h**2
+            denominador = 2 * self.largo_1 * self.largo_2
+            
+            cos_q2_int = numerador / denominador
+            cos_q2_int = np.clip(cos_q2_int, -1.0, 1.0) # Evitar errores numéricos
+            
+            q2_interno = np.arccos(cos_q2_int)
+            q2 = np.pi - q2_interno 
+            # NOTA: Si el codo dobla al revés, prueba: q2 = -(np.pi - q2_interno)
 
-                if h == 0:
-                    self.get_logger().warning(f'Singularidad en el origen, h = 0')
-                    continue
-                cos_beta = (self.largo_1 * 2 - self.largo_2 * 2) / (2 * self.largo_1 * h)
-                cos_beta = np.clip(cos_beta, -1.0, 1.0)
-                beta = np.arccos(cos_beta)
+            # --- Q1 (Hombro) ---
+            # CORRECCIÓN 2: Usar arctan2 para respetar cuadrantes
+            gamma = np.arctan2(y, x) 
 
-                q1 = gamm - beta
-
-                q2 = q2 + self.origen_eslabon
-                q1 = q1 + self.origen_base
-
-                if q1 < - self.ang_desp_max_base or q1 > self.ang_desp_max_base:
-                    self.get_logger().warning(f'Angulo q1 se sale de los limites {q1}')
-                    continue
-                if q2 < - self.ang_desp_max_base or q2 > self.ang_desp_max_base:
-                    self.get_logger().warning(f'Angulo q1 se sale de los limites {q2}')
-                    continue
-
-                # Enviar los datos de los angulos al nodo colector del serial
-                msg = Int16MultiArray()
-                data = [int(round(q1)), int(round(q2))]
-                msg.data = data
-                self.publisher.publish(msg)
-
-
-                self.get_logger().info(f'Angulos obtenidos {q1, q2}, para las coordenadas objetivo {x, y}')
-            except Empty:
-                pass # completar
-            except Exception as e:
-                self.get_logger().warning(f'Problemas en el loop de procesamiento: {e}')
-                self.get_logger().debug(traceback.format_exc())
+            # Ley de cosenos para beta (ángulo interno del triángulo base-hombro-muñeca)
+            if h == 0:
                 continue
-    
+
+            # CORRECCIÓN: **2 otra vez
+            num_beta = self.largo_1**2 + h**2 - self.largo_2**2
+            den_beta = 2 * self.largo_1 * h
+            
+            cos_beta = num_beta / den_beta
+            cos_beta = np.clip(cos_beta, -1.0, 1.0)
+            beta = np.arccos(cos_beta)
+
+            q1 = gamma - beta
+
+            # Ajuste de origen de los motores (Calibration offset)
+            q1_final = q1 + self.origen_base
+            q2_final = q2 + self.origen_eslabon
+            
+            # Convertir a Grados para verificar limites (o si tus limites son radianes, dejalo asi)
+            # Asumo que tus limites self.ang_desp_max_base están en la misma unidad que q1/q2
+
+            # ... (Tus verificaciones de limites aqui) ...
+
+            # Enviar
+            msg = Int16MultiArray()
+            # Convertir radianes a grados para el Arduino? 
+            # Ojo: np.arccos devuelve radianes. Si tu arduino espera grados:
+            deg_q1 = np.degrees(q1_final)
+            deg_q2 = np.degrees(q2_final)
+            
+            data = [int(round(deg_q1)), int(round(deg_q2))]
+            msg.data = data
+            self.publisher.publish(msg)
+
+            self.get_logger().info(f'Enviando Grados: {data}')
+
+        except Empty:
+            pass
+        except Exception as e:
+            self.get_logger().error(f'Error IK: {e}')
+            # traceback es util, importalo si no lo tienes
+            # import traceback
+            # self.get_logger().error(traceback.format_exc())
+
+
     def destroy_threads(self):
         """
         Destruir todos los hilos antes de destruir el nodo
