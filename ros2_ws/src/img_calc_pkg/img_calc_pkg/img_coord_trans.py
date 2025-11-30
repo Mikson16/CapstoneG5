@@ -32,9 +32,15 @@ class BagCoordTransNode(Node):
         self.subscriber = self.create_subscription(Int16MultiArray, 'static_camera/papa_coord', self.queue_coord_callback, 10)
 
         # Parametros
-        self.offset_x = 0.0 # coord x de la base del robot en la imagen
-        self.offset_y = 0.0 # coord y de la base del robot en la imagen
-        self.scale = 1.0 #milimetros por pixel
+        self.origen_base = 0.0 # None # en radianes
+        self.origen_eslabon = 0.0 # None # en radianes
+        # Estos son 0 porque el origen del robot se considera el origen del sistema
+        self.OFFSET_CAMARA_X = 302.0 # mm
+        self.OFFSET_CAMARA_Y = 286.0 # mm
+
+        self.factor_resolucion = 0.8797 # Calcular
+        self.centro_camara_X = float(520/2)
+        self.centro_camara_Y = float(480/2)
 
         # Armar hilos
         self.processing_thread = Thread(target = self.processing_loop, daemon = False)
@@ -58,19 +64,21 @@ class BagCoordTransNode(Node):
                 # obtener data de la cola
                 data_coord = self.bag_coord_q.get_nowait()
                 # Aqui hay que hacer la transformacion de los pixeles a las coordenadas del robot
-                u_camara = data_coord[0]
-                v_camara = data_coord[1]
-                
-                # trasladar el origen de la esquina a la base del robot
-                delta_u = u_camara - self.offset_x
-                delta_v = v_camara - self.offset_y
+                x_cam = data_coord[0]
+                y_cam = data_coord[1]
 
-                # convertir a milimetros
-                x = delta_u * self.scale
-                y = delta_v * self.scale
+                x_rel_mm = (x_cam - self.centro_camara_X) * self.factor_resolucion
+                y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
+            #
+                # trasladar el origen de la esquina a la base del robot
+                x = x_cam + self.OFFSET_CAMARA_X
+                y = y_cam + self.OFFSET_CAMARA_Y
 
                 self.get_logger().info(f'Las coordenadas x, y del objeto en las coordenadas del robot es {x, y}')
                 # Ahora enviar el mensaje, hacer la publicacion
+                msg = Int16MultiArray()
+                msg.data = [x, y]
+                self.publisher.pub(msg)
 
             except Empty:
                 pass # completar

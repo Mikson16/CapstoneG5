@@ -73,30 +73,16 @@ def processing_loop(self):
             # (Asumo que 'coords' viene en milímetros desde tu nodo de visión.
             #  Si viene en pixeles, debes multiplicar por tu factor de escala antes)
             coords_camara = self.bag_coord_q.get_nowait()
-            x_cam = coords_camara[0]
-            y_cam = coords_camara[1]
-
-
-            #
-            x_rel_mm = (x_cam - self.centro_camara_X) * self.factor_resolucion
-            y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
-            #
-
-            # ---------------------------------------------------------
-            # 2. TRANSFORMACIÓN DE COORDENADAS (Cámara -> Robot)
-            # ---------------------------------------------------------
-            
-            x = x_cam + self.OFFSET_CAMARA_X
-            y = y_cam + self.OFFSET_CAMARA_Y
+            x_cam_trans = coords_camara[0]
+            y_cam_trans = coords_camara[1]
             
             # Debug: Ver si la coordenada tiene sentido
-            self.get_logger().info(f"Cam: ({x_cam}, {y_cam}) -> Robot: ({x}, {y})")
+            self.get_logger().info(f"Cam: ({x_cam_trans}, {y_cam_trans})")
 
             # ---------------------------------------------------------
-            # 3. CÁLCULO DE CINEMÁTICA INVERSA (Corregido)
+            # 3. CÁLCULO DE CINEMÁTICA INVERSA 
             # ---------------------------------------------------------
             
-            # CORRECCIÓN 1: Usar **2 para elevar al cuadrado
             h = np.sqrt(x**2 + y**2)
 
             # Verificación de alcance

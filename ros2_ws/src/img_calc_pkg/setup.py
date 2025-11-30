@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # instalar launch files para que ros2 los encuentre
         ('share/' + package_name + '/launch', ['launch/launch_papa_orientation.py']),
+        ('share/' + package_name + '/launch', ['launch/launch_calc_nodes.py'])
     ],
     install_requires=['setuptools'],
     zip_safe=True,

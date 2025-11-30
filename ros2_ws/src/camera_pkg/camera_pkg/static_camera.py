@@ -40,9 +40,9 @@ class StaticCameraNode(Node):
             # Acortar la imagen para obtener solo el area de trabajo
             
             frame = frame[:, self.crop_der : -self.crop_izq, :]
-            self.get_logger().info(f'El tamaño de la imagen es {frame.shape}') # es de 480, 640, 3
-            center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
-            cv2.circle(frame, center, 10, (0, 255, 0), -1)
+            # self.get_logger().info(f'El tamaño de la imagen es {frame.shape}') # es de 480, 640, 3
+            # center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
+            # cv2.circle(frame, center, 10, (0, 255, 0), -1)
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             cv2.imshow('Static Camera Node', frame)
             cv2.waitKey(1)

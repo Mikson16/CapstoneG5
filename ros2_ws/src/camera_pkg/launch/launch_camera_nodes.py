@@ -13,7 +13,22 @@ def generate_launch_description():
             parameters=[{'headless': False}] # Cambiar a True para no desplegar las ventanas
         ),
 
-        # Nodo de procesamiento de emergencia
+        # Nodo de procesamiento de la imagen
+        Node(
+            package='camera_pkg',
+            executable='static_camera_papa',
+            name='static_camera_papa_node',
+            output='screen',
+            emulate_tty=True,
+        ),
+        
+        Node(
+            package='camera_pkg',
+            executable='static_camera_robot',
+            name='static_camera_robot_node',
+            output='screen',
+            emulate_tty= True,
+        ),
         Node(
             package='camera_pkg',
             executable='static_camera_emergency',
