@@ -15,7 +15,7 @@ from threading import Thread
 from time import sleep
 import numpy as np
 from threading import Thread, Event
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 
 class StaticCameraPapaNode(Node):
     def __init__(self):
@@ -60,8 +60,11 @@ class StaticCameraPapaNode(Node):
         # Ingresar a la cola
         try:
             self.img_q.put_nowait(cv2_image)
-        except:
+        except Full:
             self.get_logger().warning('La cola de imagenes esta llena, se descarta la imagen actual')
+        except Exception as e:
+            self.get_logger().warning(f'Error al encolar imagen: {e}')
+            self.get_logger().debug(traceback.format_exc())
     
     def processing_loop(self):
         """
@@ -177,10 +180,6 @@ class StaticCameraPapaNode(Node):
             return False
         # return cx, cy
         ## Testear y mejorar en laboratorio
-
-
-        
-        
 
 
     def destroy_threads(self):
