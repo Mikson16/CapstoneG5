@@ -141,6 +141,7 @@ class ArduinoCoordPubNode(Node):
                     self.get_logger().info(f'Enviando comando al comunicador serial')
             except Exception as e:
                 self.get_logger().warning(f'Error al enviar mensaje de cinematica: {e}')
+                continue
     
     def destroy_threads(self):
         """

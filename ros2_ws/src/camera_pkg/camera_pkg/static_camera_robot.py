@@ -224,8 +224,10 @@ class StaticCameraRobotNode(Node):
                                 # self.get_logger().info('Enviando bbox colores')
                             except Exception as e:
                                 self.get_logger().warning(f'Problema al publicar el mensaje: {e}')
+                                continue
                 except Exception as e:
                     self.get_logger().warning(f'Error al enviar bbox de colores {e}')
+                    continue
                     
 
             except Empty:

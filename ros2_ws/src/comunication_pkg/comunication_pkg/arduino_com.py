@@ -79,9 +79,11 @@ class ArduinoComNode(Node):
                     self.msg = None # Para resetear y evitar que publique el mismo mensaje varias veces
                 except Exception as e:
                     self.get_logger().error(f'[ARDUINO-COM]: Error escribiendo al serial: {e}')
+                    continue
                 
             except Exception as e:
                 self.get_logger().error(f'ARDUINO-COM: Error en el loop de consola: {e}')
+                continue
 
 
     def coord_command_callback(self, msg):
