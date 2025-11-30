@@ -38,16 +38,16 @@ class InvKinematicsNode(Node):
 
         self.origen_base = 0.0 # None # en radianes
         self.origen_eslabon = 0.0 # None # en radianes
-        # Estos son 0 porque el origen del robot se considera el origen del sistema
-        self.OFFSET_CAMARA_X = 302.0 # mm
-        self.OFFSET_CAMARA_Y = 286.0 # mm
+        # # Estos son 0 porque el origen del robot se considera el origen del sistema
+        # self.OFFSET_CAMARA_X = 302.0 # mm
+        # self.OFFSET_CAMARA_Y = 286.0 # mm
 
-        self.factor_resolucion = 0.8797 # Calcular
-        self.centro_camara_X = float(520/2)
-        self.centro_camara_Y = float(480/2)
+        # self.factor_resolucion = 0.8797 # Calcular
+        # self.centro_camara_X = float(520/2)
+        # self.centro_camara_Y = float(480/2)
 
-        self.ang_desp_max_eslabon = np.pi * 3/2
-        self.ang_desp_max_base = np.pi * 3/2
+        # self.ang_desp_max_eslabon = np.pi * 3/2
+        # self.ang_desp_max_base = np.pi * 3/2
 
         # Armar hilos
         self.processing_thread = Thread(target = self.processing_loop, daemon = False)

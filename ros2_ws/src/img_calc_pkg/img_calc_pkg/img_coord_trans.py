@@ -68,12 +68,12 @@ class BagCoordTransNode(Node):
                 x_cam = float(data_coord[0])
                 y_cam = float(data_coord[1])
 
-                x_rel_mm = (x_cam - self.centro_camara_X) * self.factor_resolucion
-                y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
+                x_rel_mm = (self.centro_camara_X - x_cam) * self.factor_resolucion
+                y_rel_mm = (self.centro_camara_Y - y_cam) * self.factor_resolucion
             #
                 # trasladar el origen de la esquina a la base del robot
-                x = int(x_cam + self.OFFSET_CAMARA_X)
-                y = int(y_cam + self.OFFSET_CAMARA_Y)
+                x = int(x_rel_mm + self.OFFSET_CAMARA_X)
+                y = int(y_rel_mm + self.OFFSET_CAMARA_Y)
 
                 self.get_logger().info(f'Las coordenadas x, y del objeto en las coordenadas del robot es {x, y}')
                 # Ahora enviar el mensaje, hacer la publicacion
