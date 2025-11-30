@@ -37,12 +37,13 @@ class InvKinematicsNode(Node):
 
         self.origen_base = 0.0 # None # en radianes
         self.origen_eslabon = 0.0 # None # en radianes
+        # Estos son 0 porque el origen del robot se considera el origen del sistema
         self.OFFSET_CAMARA_X = 302.0 # mm
         self.OFFSET_CAMARA_Y = 286.0 # mm
 
         self.factor_resolucion = 0.8797 # Calcular
-        self.centro_camara_X = 0.0
-        self.centro_camara_Y = 0.0
+        self.centro_camara_X = float(520/2)
+        self.centro_camara_Y = float(480/2)
 
         self.ang_desp_max_eslabon = np.pi * 3/2
         self.ang_desp_max_base = np.pi * 3/2
@@ -75,14 +76,21 @@ def processing_loop(self):
             x_cam = coords_camara[0]
             y_cam = coords_camara[1]
 
+
+            #
+            x_rel_mm = (x_cam - self.centro_camara_X) * self.factor_resolucion
+            y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
+            #
+
             # ---------------------------------------------------------
             # 2. TRANSFORMACIÓN DE COORDENADAS (Cámara -> Robot)
             # ---------------------------------------------------------
+            
             x = x_cam + self.OFFSET_CAMARA_X
             y = y_cam + self.OFFSET_CAMARA_Y
             
             # Debug: Ver si la coordenada tiene sentido
-            # self.get_logger().info(f"Cam: ({x_cam}, {y_cam}) -> Robot: ({x}, {y})")
+            self.get_logger().info(f"Cam: ({x_cam}, {y_cam}) -> Robot: ({x}, {y})")
 
             # ---------------------------------------------------------
             # 3. CÁLCULO DE CINEMÁTICA INVERSA (Corregido)
