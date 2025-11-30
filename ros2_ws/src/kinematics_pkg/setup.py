@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'img_calc_pkg'
+package_name = 'kinematics_pkg'
 
 setup(
     name=package_name,
@@ -10,8 +10,6 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        # instalar launch files para que ros2 los encuentre
-        ('share/' + package_name + '/launch', ['launch/launch_papa_orientation.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -26,8 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'papa_orientation = img_calc_pkg.papa_orientation:main',
-            'img_coord_trans = img_calc_pkg.img_coord_trans:main'
+            'inv_kinematics = kinematics_pkg.inv_kinematics:main'
         ],
     },
 )

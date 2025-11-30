@@ -80,8 +80,8 @@ class StaticCameraPapaNode(Node):
 
                 # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacion del lab
 
-                lower_yellow = np.array([20, 100, 100])
-                upper_yellow = np.array([60, 235, 235]) #H, S, V
+                lower_yellow = np.array([25, 125, 125])
+                upper_yellow = np.array([55, 235, 235]) #H, S, V
 
                 #Rojo
                 # lower_red = np.array([0, 100, 100])
