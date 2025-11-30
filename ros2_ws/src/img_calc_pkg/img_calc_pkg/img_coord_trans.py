@@ -63,7 +63,7 @@ class BagCoordTransNode(Node):
             try:
                 # obtener data de la cola
                 data_coord = self.bag_coord_q.get_nowait()
-                self.get_logger().info(f'datot_coord es {data_coord}')
+                self.get_logger().info(f'dato_coord es {data_coord}')
                 # Aqui hay que hacer la transformacion de los pixeles a las coordenadas del robot
                 x_cam = float(data_coord[0])
                 y_cam = float(data_coord[1])
@@ -72,8 +72,8 @@ class BagCoordTransNode(Node):
                 y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
             #
                 # trasladar el origen de la esquina a la base del robot
-                x = x_cam + self.OFFSET_CAMARA_X
-                y = y_cam + self.OFFSET_CAMARA_Y
+                x = int(x_cam + self.OFFSET_CAMARA_X)
+                y = int(y_cam + self.OFFSET_CAMARA_Y)
 
                 self.get_logger().info(f'Las coordenadas x, y del objeto en las coordenadas del robot es {x, y}')
                 # Ahora enviar el mensaje, hacer la publicacion
@@ -82,7 +82,7 @@ class BagCoordTransNode(Node):
                 self.publisher.publish(msg)
 
             except Empty:
-                pass # completar
+                continue # completar
             except Exception as e:
                 self.get_logger().warning(f'Problemas en el loop de procesamiento: {e}')
                 self.get_logger().debug(traceback.format_exc())

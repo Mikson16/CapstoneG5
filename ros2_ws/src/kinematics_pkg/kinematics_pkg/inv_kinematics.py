@@ -33,8 +33,8 @@ class InvKinematicsNode(Node):
 
         # Parametros
         self.coords = None # coordenadas x, y del centro de la bolsa
-        self.largo_1 = 40.8 # cm  #  Largo del eslabon 1
-        self.largo_2 = 21.0 #cm  # Largo del eslabon 2
+        self.largo_1 = 408.0 # mm  #  Largo del eslabon 1
+        self.largo_2 = 210.0  #mm  # Largo del eslabon 2
 
         self.origen_base = 0.0 # None # en radianes
         self.origen_eslabon = 0.0 # None # en radianes
@@ -85,7 +85,7 @@ class InvKinematicsNode(Node):
                 # 3. CÁLCULO DE CINEMÁTICA INVERSA 
                 # ---------------------------------------------------------
                 
-                h = np.sqrt(x**2 + y**2)
+                h = np.sqrt(x_cam_trans**2 + y_cam_trans**2)
 
                 # Verificación de alcance
                 if h > (self.largo_1 + self.largo_2) or h < np.abs(self.largo_1 - self.largo_2):
@@ -106,7 +106,7 @@ class InvKinematicsNode(Node):
 
                 # --- Q1 (Hombro) ---
                 # CORRECCIÓN 2: Usar arctan2 para respetar cuadrantes
-                gamma = np.arctan2(y, x) 
+                gamma = np.arctan2(y_cam_trans, x_cam_trans) 
 
                 # Ley de cosenos para beta (ángulo interno del triángulo base-hombro-muñeca)
                 if h == 0:

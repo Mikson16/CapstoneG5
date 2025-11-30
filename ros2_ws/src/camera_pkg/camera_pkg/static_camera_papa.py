@@ -165,7 +165,7 @@ class StaticCameraPapaNode(Node):
             try:
                 msg = Int16MultiArray()
                 msg.data = [int(cx), int(cy)]
-                self.publisher.publish(self.publisher.publish(msg))
+                self.publisher.publish(msg)
             except Exception as e:
                 # self.get_logger().warning(f"[Static camera papa publisher] No se ha detectado un objeto, no se publican coordenadas")
                 pass
