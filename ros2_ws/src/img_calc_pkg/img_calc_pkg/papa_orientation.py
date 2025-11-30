@@ -165,14 +165,17 @@ class PapaOrientationNode(Node):
                     self.publisher.publish(msg)
                 except Exception as e:
                     self.get_logger().warning(f"No se pudo publicar la orientacion la orientacion: {e}")
+                    continue
 
             except Full:
                 self.get_logger().warning(f'Cola llena')
                 self.ang_bolsa = None
+                continue
             except Empty:
                 # self.get_logger().info(f'Cola vacia')
                 data_color = None
                 self.ang_bolsa = None
+                continue
             except Exception as e:
                 self.get_logger().warning(f'[Papa Orientation Node] Problema al obtener bbox de los colores: {e}')
                 self.get_logger().debug(traceback.format_exc())

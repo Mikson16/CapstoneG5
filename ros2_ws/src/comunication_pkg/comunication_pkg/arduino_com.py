@@ -75,6 +75,7 @@ class ArduinoComNode(Node):
 
                 try: 
                     self.ser.write(self.msg.encode('utf-8'))
+                    self.get_logger().info(f'SE ESTA ENVIANDO EL MENSAJE {data}')
                     self.msg = None # Para resetear y evitar que publique el mismo mensaje varias veces
                 except Exception as e:
                     self.get_logger().error(f'[ARDUINO-COM]: Error escribiendo al serial: {e}')

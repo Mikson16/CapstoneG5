@@ -111,6 +111,7 @@ class StaticCameraPapaNode(Node):
 
             except Empty:
                 frame = None
+                continue
                 # self.get_logger().info('[Static Camera Papa Node]: La cola de imagenes esta vacia, esperando nueva imagen')
                 # Al parecer la cola avanza muy rapido y este mensaje satura la terminal, lo comentare mientras tanto
 
