@@ -7,11 +7,11 @@
 
 // ===== CONFIGURACIÓN ROBOT =====
 const float k_coreccion= 1.02;
-// const float COUNTS_PER_REV_ARM = 1920*3; 
-// // const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
-// // const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
-const float COUNTS_PER_REV_ARM = 1920 * 3;
-const float COUNTS_PER_DEGREE = COUNTS_PER_REV_ARM / 360.0;
+const float COUNTS_PER_REV_ARM = 1920*3; 
+const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
+const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
+// const float COUNTS_PER_REV_ARM = 1920 * 3;
+// const float COUNTS_PER_DEGREE = COUNTS_PER_REV_ARM / 360.0;
 int canalM1 = 1;
 int canalM2 = 2;
 
@@ -61,8 +61,10 @@ const int limite_lateral1 = 53;
 
 // ===== VARIABLES PID =====
 float kp1 = 4.0, ki1 = 0.15, kd1 = 0.01;
-float kp2 = 2.0, ki2 = 0.22, kd2 = 0.03;
+float kp2 = 2.0, ki2 = 0.25, kd2 = 0.03;
 
+
+const unsigned long Period_PID = 10000UL;
 float angulo_actual1 = 0.0;
 float angulo_actual2 = 0.0;
 float angulo_objetivo1 = 30.0; 
@@ -229,6 +231,7 @@ void loop() {
           break;
 
         case HOME_Z_DOWN:
+          leerLimites();
           // Bajar hasta encontrar limite
           if (!flag_limite_inferior) {
             digitalWrite(DIR, LOW); // Dirección BAJAR
@@ -279,7 +282,7 @@ void loop() {
             enable_step = true;
             homing_sub_state = HOME_SUBIR;
           } else {
-            ST.motor(canalM2, -10); // Velocidad negativa hacia el switch
+            ST.motor(canalM2, -15); // Velocidad negativa hacia el switch
             leerLimites();
           }
           break;
@@ -353,14 +356,14 @@ void loop() {
           Serial.println("Papa detectada");
           digitalWrite(bomba, HIGH);
           if (!flag_bolsa){
-            pasos_restantes = 5;
+            pasos_restantes = 200;
             enable_step = true;
             flag_bolsa = true;
           }else{
             if (pasos_restantes <=0){
               Serial.println("Subiendo Papa");
               setState(SUBIENDO_CON_PAPA);
-              
+              delay(50);    
             }
           }
           
@@ -386,11 +389,14 @@ void loop() {
             // Aquí decides qué hacer después de recogerla (ej: ir a dejarla)
             Serial.println("Subida completa. Esperando nueva orden.");
             setState(SOLTAR_PAPA); 
+            delay(50);
         }
         break;
     
     case SOLTAR_PAPA:
       controlPID();
+
+      break;
 
     case STOP:
         MG995_Servo.detach();
@@ -482,7 +488,6 @@ void procesarMensaje(String msg) {
           }
       }
     }
-
     // --- Asignación Final ---
     angulo_objetivo1 = tempM1;
     angulo_objetivo2 = tempM2;
@@ -501,20 +506,21 @@ void procesarMensaje(String msg) {
 }
 
 void controlPID() {
-  unsigned long now = micros();
-  // 10ms loop
-  if (now - time_ant_pid < 10000) return; 
+  if (micros() - time_ant_pid < Period_PID) return; // Ejecutar solo cada 10ms
   
-  float dt = (now - time_ant_pid) / 1000000.0; // DT real en segundos
-  time_ant_pid = now;
+  time_ant_pid = micros();
+  float dt = Period_PID / 1000000.0;
 
-  // 1. Leer Posición
-  long pos0 = myEnc1.read();
+  // 1. Leer Posición REAL (Snapshot atómico)
+  // long pos0, pos1;
+  noInterrupts();
+  long pos0 = myEnc1.read(); 
   long pos1 = myEnc2.read();
+  interrupts();
 
   // 2. Convertir
-  angulo_actual1 = (float)pos0 / COUNTS_PER_DEGREE;
-  angulo_actual2 = (float)pos1 / COUNTS_PER_DEGREE;
+  angulo_actual1 = (float)pos0 / COUNTS_PER_DEGREE1;
+  angulo_actual2 = (float)pos1 / COUNTS_PER_DEGREE2;
 
   // 3. PID M1
   error_pid1 = angulo_objetivo1 - angulo_actual1;
@@ -533,20 +539,35 @@ void controlPID() {
   error_anterior2 = error_pid2;
 
   // 5. Salidas
+
+  int current_limit1 = limit_vel1;
+  int current_limit2 = limit_vel2;
+
+  if (flag_bolsa) {
+      // Si hay bolsa, limitamos la velocidad del motor 2 a la mitad (según tu lógica)
+      current_limit2 = (int)(limit_vel2 * 0.5);
+      // current_limit1 se queda igual según tu código anterior, pero puedes bajarlo aquí si quieres
+  }
   int out1 = constrain((int)pid_output1, -limit_vel1, limit_vel1); 
-  int out2 = constrain((int)pid_output2, -limit_vel2, limit_vel2);
+  int out2 = constrain((int)pid_output2, -current_limit2, current_limit2);
 
   if (abs(error_pid1) < 1.0) {
       out1 = 0;
   } else {
       // Si estamos lejos, aseguramos que la potencia mínima sea 50
-      if (out1 > 0 && out1 < 10)  out1 = 20;  // Empujón mínimo positivo
-      if (out1 < 0 && pid_output1 > -10) out1 = -20; // Empujón mínimo negativo
+      if (out1 > 0 && out1 <= 16)  out1 = 20;  // Empujón mínimo positivo
+      if (out1 < 0 && pid_output1 >= -16) out1 = -20; // Empujón mínimo negativo
       // No necesitamos limitar hacia arriba aquí, el constrain final lo hará
   }
-  // Zona muerta
-  // if (abs(out1) < 8) out1 = 15; 
-  // if (abs(out2) < 8) out2 = 15;
+
+  if (abs(error_pid2) < 1.0) {
+      out2 = 0;
+  } else {
+      // Si estamos lejos, aseguramos que la potencia mínima sea 50
+      if (out2 > 0 && out2 <= 17)  out2 = 18;  // Empujón mínimo positivo
+      if (out2 < 0 && pid_output2 >= -17) out2 = -18; // Empujón mínimo negativo
+      // No necesitamos limitar hacia arriba aquí, el constrain final lo hará
+  }
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
@@ -565,19 +586,30 @@ void controlPID() {
   // 6. Llegada al objetivo y transición
   if (abs(error_pid1) < 1.0 && abs(error_pid2) < 1.0) {
     if (!flag_bolsa){
+      error_pid1 = 0;
+      error_pid2 = 0;
+      error_anterior1 = 0;
+      error_anterior2 = 0;
       Serial.println("RECOGIENDO PAPA");
       myEnc1.write(0);
       myEnc2.write(0);
       angulo_objetivo1 = -20.0;
       angulo_objetivo2 = 60.0;
       setState(ESPERAR);
+
     } else{
+      Serial.println("SOLTANDO SOBRE LA CAJA");
       myEnc1.write(0);
       myEnc2.write(0);
+      error_pid1 = 0;
+      error_pid2 = 0;
+      error_anterior1 = 0;
+      error_anterior2 = 0;
+      delay(50);
       digitalWrite(bomba, LOW);
       setState(ESPERANDO_PAPA);
-    }
-     
+      delay(50);
+    } 
   }
 }
 
