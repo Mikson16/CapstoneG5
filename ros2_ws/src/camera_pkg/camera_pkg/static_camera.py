@@ -19,6 +19,9 @@ class StaticCameraNode(Node):
         super().__init__('static_camera_node')
         self.publisher = self.create_publisher(Image, 'static_camera/image_raw', 10)
         
+        # Parametros
+        self.crop_der = 70
+        self.crop_izq = 50
         try:
             self.capture = cv2.VideoCapture(0, cv2.CAP_V4L2)  # Ajustar indice segun la camara estatica, si esta en el USB 3 los indices son 2 y 3
         except Exception as e:
@@ -36,7 +39,8 @@ class StaticCameraNode(Node):
         if ret:
             # Acortar la imagen para obtener solo el area de trabajo
             
-            self.get_logger().info(f'El tamaño de la imagen es {frame.shape}')
+            # self.get_logger().info(f'El tamaño de la imagen es {frame.shape}') es de 480, 640, 3
+            frame = frame[:, self.crop_der : -self.crop_izq, :]
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             cv2.imshow('Static Camera Node', frame)
             cv2.waitKey(1)
