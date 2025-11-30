@@ -13,6 +13,8 @@ setup(
         #instalar launch files para que ros2 los encuentre
         ('share/' + package_name + '/launch', ['launch/launch_static_camera.py']),
         ('share/' + package_name + '/launch', ['launch/launch_static_emergency_test.py']),
+        ('share/' + package_name + '/launch', ['launch/launch_camera_nodes.py']),
+        ('share/' + package_name + '/launch', ['launch/launch_all.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

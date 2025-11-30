@@ -63,9 +63,10 @@ class BagCoordTransNode(Node):
             try:
                 # obtener data de la cola
                 data_coord = self.bag_coord_q.get_nowait()
+                self.get_logger().info(f'datot_coord es {data_coord}')
                 # Aqui hay que hacer la transformacion de los pixeles a las coordenadas del robot
-                x_cam = data_coord[0]
-                y_cam = data_coord[1]
+                x_cam = float(data_coord[0])
+                y_cam = float(data_coord[1])
 
                 x_rel_mm = (x_cam - self.centro_camara_X) * self.factor_resolucion
                 y_rel_mm = (y_cam - self.centro_camara_Y) * self.factor_resolucion
@@ -78,7 +79,7 @@ class BagCoordTransNode(Node):
                 # Ahora enviar el mensaje, hacer la publicacion
                 msg = Int16MultiArray()
                 msg.data = [x, y]
-                self.publisher.pub(msg)
+                self.publisher.publish(msg)
 
             except Empty:
                 pass # completar
