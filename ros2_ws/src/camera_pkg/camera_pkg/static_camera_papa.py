@@ -83,8 +83,12 @@ class StaticCameraPapaNode(Node):
 
                 # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacion del lab
 
-                lower_yellow = np.array([25, 125, 125])
-                upper_yellow = np.array([55, 235, 235]) #H, S, V
+                # lower_yellow = np.array([25, 125, 125])
+                # upper_yellow = np.array([55, 235, 235]) #H, S, V
+
+                # Rangos para testear fuera del lab
+                lower_yellow = np.array([25, 135, 140])
+                upper_yellow = np.array([55, 235, 235])
 
                 #Rojo
                 # lower_red = np.array([0, 100, 100])
@@ -101,6 +105,8 @@ class StaticCameraPapaNode(Node):
 
                 # Mascara amarilla
                 yellow_mask = cv.inRange(frame_hsv, lower_yellow, upper_yellow)
+                kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+                yellow_mask = cv.morphologyEx(yellow_mask, cv.MORPH_CLOSE, kernel)
 
 
                 # Aplicar la mascara a la imagen original

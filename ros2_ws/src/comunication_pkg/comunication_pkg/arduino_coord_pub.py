@@ -111,7 +111,7 @@ class ArduinoCoordPubNode(Node):
 
                 self.last_kin = None
                 self.last_ori = None
-                self.get_logger().info(f'Loop de procesamiento, las coordenadas que hay son {kin}, {ori}')
+                # self.get_logger().info(f'Loop de procesamiento, las coordenadas que hay son {kin}, {ori}')
 
             # Procesar para el mensaje
             try:
