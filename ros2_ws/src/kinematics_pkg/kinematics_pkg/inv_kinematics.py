@@ -55,7 +55,7 @@ class InvKinematicsNode(Node):
 
     def queue_coord_callback(self, msg):
         try:
-            data = msg.data
+            data = list(msg.data)
             # self.get_logger().info(f'la data que esta llegando es: {data}')
             self.bag_coord_q.put_nowait(data)
 

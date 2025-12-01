@@ -24,7 +24,7 @@ class StaticCameraPapaNode(Node):
         self.get_logger().info('[Static Camera Papa Node]: ha sido iniciado')
 
         # Crear cola para pasar imagenes del callback al hilo de procesamiento
-        self.img_q = Queue(maxsize=5) # Cola Fifo de tamaño 5
+        self.img_q = Queue(maxsize=2) # Cola Fifo de tamaño 5
         self.stop_event = Event()
 
         # Crear suscriptor al mensaje de la camara estatica
