@@ -10,8 +10,7 @@ const float k_coreccion= 1.02;
 const float COUNTS_PER_REV_ARM = 1920*3; 
 const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
 const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
-// const float COUNTS_PER_REV_ARM = 1920 * 3;
-// const float COUNTS_PER_DEGREE = COUNTS_PER_REV_ARM / 360.0;
+
 int canalM1 = 1;
 int canalM2 = 2;
 
@@ -57,11 +56,11 @@ const int CRTouch_Control = 9;
 // Limites
 const int limite_inferior = 23;
 const int limite_lateral1 = 53;
-// const int limite_lateral2 = 51;
+const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
-float kp1 = 4.0, ki1 = 0.15, kd1 = 0.01;
-float kp2 = 2.0, ki2 = 0.25, kd2 = 0.03;
+float kp1 = 4.0, ki1 = 0.20, kd1 = 0.01;
+float kp2 = 3.0, ki2 = 0.35, kd2 = 0.04;
 
 
 const unsigned long Period_PID = 10000UL;
@@ -80,7 +79,7 @@ float pid_output2 = 0;
 // ===== VARIABLES SISTEMA =====
 bool flag_limite_inferior = false;
 bool flag_limite_lateral1  = false;
-// bool flag_limite_lateral2  = false;
+bool flag_limite_lateral2  = false;
 bool flag_servo_listo = false;
 bool flag_centro = false;
 bool flag_cambio = true;
@@ -143,7 +142,7 @@ void stepISR() {
 void leerLimites() {
   flag_limite_inferior = digitalRead(limite_inferior);
   flag_limite_lateral1 = digitalRead(limite_lateral1);
-  // flag_limite_lateral2 = digitalRead(limite_lateral2);
+  flag_limite_lateral2 = digitalRead(limite_lateral2);
   
   // Sensor Hall/IR Analogico
   if (analogRead(pinSensorHall) <= 30) {
@@ -185,7 +184,7 @@ void setup() {
   cr_touch.write(160);  // Comando de Reseteo de Alarma
   delay(500);
 
-  Serial.println("Enviando comando de despliegue CR-Touch...");
+  Serial.println("Enviando comando de despliegue CR-Touch...-------------------------------");
   cr_touch.write(10); // Desplegar
   delay(500);   
   pinMode(CRTouch_Detection, INPUT_PULLUP);
@@ -197,6 +196,7 @@ void setup() {
   Timer1.initialize(500); // Velocidad Stepper
   Timer1.attachInterrupt(stepISR);
 
+  //digitalWrite(bomba, HIGH);
   setState(INICIO);
 }
 
@@ -226,7 +226,7 @@ void loop() {
           ST.motor(canalM1, 0);
           ST.motor(canalM2, 0);
           enable_step = false;
-          Serial.println("Homing: Buscando limite inferior Z");
+          Serial.println("Homing: Buscando limite inferior Z-----------------------------------------");
           homing_sub_state = HOME_Z_DOWN;
           break;
 
@@ -240,7 +240,7 @@ void loop() {
           } else {
             // Límite encontrado
             enable_step = false;
-            Serial.println("Homing: Z Listo. Buscando Centro M1");
+            Serial.println("Homing: Z Listo. Buscando Centro M1--------------------------------------");
             homing_sub_state = HOME_M1_FIND;
           }
           break;
@@ -249,13 +249,13 @@ void loop() {
         leerLimites();
           // Mover M1 hasta sensor Hall
           if (!flag_centro) {
-            ST.motor(canalM1, 19); // Velocidad lenta
+            ST.motor(canalM1, 16); // Velocidad lenta
             leerLimites();
           } else {
             ST.motor(canalM1, 0);
             myEnc1.write(0); // Reset Encoder 1
             
-            Serial.println("Homing: M1 Listo. Buscando Tope M2");
+            Serial.println("Homing: M1 Listo. Buscando Tope M2----------------------------------------");
             homing_sub_state = HOME_M2_FIND;
           }
           break;
@@ -267,14 +267,14 @@ void loop() {
             leerLimites();
             ST.motor(canalM2, 0);
             myEnc2.write(0); // Reset Encoder 2
-            Serial.println("Homing: M2 Listo. Subiendo Z...");
+            Serial.println("Homing: M2 Listo. Subiendo Z...---------------------------------------");
 
             if (flag_limite_lateral1){
-              Serial.println("Por Limit 1");
+              Serial.println("Por Limit 1------------------------------------------------------");
             }
-            // if (flag_limite_lateral2){
-            //   Serial.println("Por Limit 2");
-            // }
+            if (flag_limite_lateral2){
+               Serial.println("Por Limit 2");
+            }
             
             // Subir Z un poco para no arrastrar
             digitalWrite(DIR, HIGH);
@@ -295,28 +295,33 @@ void loop() {
           if (pasos_restantes <= 0 && enable_step == false) {
              homing_sub_state = HOME_DONE;
              flag_limite_inferior = false;
-             Serial.println("Homing COMPLETO.");
+             Serial.println("Homing COMPLETO.-------------------------------------------");
           }
           break;
 
         case HOME_DONE:
           homing_sub_state = HOME_START;
           setState(ESPERANDO_PAPA);
-          Serial.println("ESPERANDO PAPA.");
+          Serial.println("ESPERANDO PAPA.-----------------------------------------------");
           break;
       }
       break;
 
     case ESPERANDO_PAPA:
-      ST.motor(canalM1, 0); ST.motor(canalM2, 0);
-      enable_step = false;
+      angulo_objetivo1 = 45.0;
+      angulo_objetivo2 = 155.0;
+      controlPID(); // Probablemente aquí habría que mandar un mensaje a la raspi para que sepa que estamos en la posición 
+
+      //ST.motor(canalM1, 0); ST.motor(canalM2, 0);
+      //enable_step = false;
+
 
       // Opción de comando manual de prueba con botón (opcional)
       if (digitalRead(boton_mover) == HIGH) {
         myEnc1.write(0); 
         myEnc2.write(0); 
         setState(MOVIENDOSE);
-        Serial.println("Realizando PID");
+        Serial.println("Realizando PID---------------------------------");
       }
       break;
 
@@ -326,6 +331,8 @@ void loop() {
           MG995_Servo.write(angulo_objetivo_servo);
           flag_servo_listo = true;
       }  
+      angulo_objetivo1 = 45.0;
+      angulo_objetivo2 = -30.0;
       controlPID(); 
     
       // Salida de seguridad
@@ -353,7 +360,7 @@ void loop() {
         
         if (digitalRead(CRTouch_Detection)){
           // CR-Touch detectó objeto
-          Serial.println("Papa detectada");
+          Serial.println("Papa detectada----------------------------------");
           digitalWrite(bomba, HIGH);
           if (!flag_bolsa){
             pasos_restantes = 200;
@@ -361,9 +368,9 @@ void loop() {
             flag_bolsa = true;
           }else{
             if (pasos_restantes <=0){
-              Serial.println("Subiendo Papa");
+              Serial.println("Subiendo Papa---------------------------------------------");
               setState(SUBIENDO_CON_PAPA);
-              delay(50);    
+              delay(100);    
             }
           }
           
@@ -371,7 +378,7 @@ void loop() {
         }
       } else {
         enable_step = false;
-        Serial.println("PAPA NO ENCONTRADA (Límite Z alcanzado).");
+        Serial.println("PAPA NO ENCONTRADA (Límite Z alcanzado).-----------------------------------------");
         setState(CENTRANDO); // O volver a inicio
       }
       break;
@@ -379,7 +386,7 @@ void loop() {
     case SUBIENDO_CON_PAPA:
         digitalWrite(DIR, HIGH); // Dirección ARRIBA
         if (!enable_step) {
-            pasos_restantes = 1000; // Subir lo suficiente
+            pasos_restantes = 1500; // Subir lo suficiente
             enable_step = true;
         }
         
@@ -387,13 +394,15 @@ void loop() {
         if (pasos_restantes <= 0) {
             enable_step = false;
             // Aquí decides qué hacer después de recogerla (ej: ir a dejarla)
-            Serial.println("Subida completa. Esperando nueva orden.");
+            Serial.println("Subida completa. Esperando nueva orden.----------------------------------------------");
             setState(SOLTAR_PAPA); 
-            delay(50);
+            delay(500);
         }
         break;
     
     case SOLTAR_PAPA:
+      angulo_objetivo1 = -30.0;
+      angulo_objetivo2 = 60.0;
       controlPID();
 
       break;
@@ -540,47 +549,40 @@ void controlPID() {
 
   // 5. Salidas
 
-  int current_limit1 = limit_vel1;
-  int current_limit2 = limit_vel2;
-
-  if (flag_bolsa) {
-      // Si hay bolsa, limitamos la velocidad del motor 2 a la mitad (según tu lógica)
-      current_limit2 = (int)(limit_vel2 * 0.5);
-      // current_limit1 se queda igual según tu código anterior, pero puedes bajarlo aquí si quieres
-  }
   int out1 = constrain((int)pid_output1, -limit_vel1, limit_vel1); 
-  int out2 = constrain((int)pid_output2, -current_limit2, current_limit2);
+  int out2 = constrain((int)pid_output2, -limit_vel2, limit_vel2);
+  if (flag_bolsa) {
+    // Si hay bolsa, limitamos la velocidad del motor 2 a la mitad
+    out1 = constrain((int)pid_output1, -(limit_vel1/1.15), (limit_vel1/1.15)); 
+    out2 = constrain((int)pid_output2, -(limit_vel2/2), (limit_vel2/2)); 
+    Serial.println("Limitando motores por papa --------------------------------");
+    out2 = out2/1.5;
+  }
 
   if (abs(error_pid1) < 1.0) {
       out1 = 0;
-  } else {
+  } /*else if (!flag_bolsa) {
       // Si estamos lejos, aseguramos que la potencia mínima sea 50
-      if (out1 > 0 && out1 <= 16)  out1 = 20;  // Empujón mínimo positivo
-      if (out1 < 0 && pid_output1 >= -16) out1 = -20; // Empujón mínimo negativo
+      if (out1 > 0 && out1 <= 16)  out1 = 16;  // Empujón mínimo positivo
+      if (out1 < 0 && pid_output1 >= -16) out1 = -16; // Empujón mínimo negativo
       // No necesitamos limitar hacia arriba aquí, el constrain final lo hará
-  }
+  }*/
 
   if (abs(error_pid2) < 1.0) {
       out2 = 0;
-  } else {
+  } /*else if (!flag_bolsa) {
       // Si estamos lejos, aseguramos que la potencia mínima sea 50
-      if (out2 > 0 && out2 <= 17)  out2 = 18;  // Empujón mínimo positivo
-      if (out2 < 0 && pid_output2 >= -17) out2 = -18; // Empujón mínimo negativo
+      if (out2 > 0 && out2 <= 17)  out2 = 9;  // Empujón mínimo positivo
+      if (out2 < 0 && pid_output2 >= -17) out2 = -9; // Empujón mínimo negativo
       // No necesitamos limitar hacia arriba aquí, el constrain final lo hará
-  }
+  }*/
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
 
 
-  Serial.println("Error 1");
-  Serial.println(error_pid1);
-  Serial.println("Aactuacion 1");
-  Serial.println(-out1);
-  Serial.println("Error 2");
-  Serial.println(error_pid2);
-  Serial.println("Aactuacion 2");
-  Serial.println(out2);
+  Serial.print("Error 1: "); Serial.print(error_pid1); Serial.print("   "); Serial.print("Aactuacion 1: "); Serial.println(-out1);
+  Serial.print("Error 2: "); Serial.print(error_pid2); Serial.print("   "); Serial.print("Aactuacion 2: "); Serial.println( out2);
  
 
   // 6. Llegada al objetivo y transición
@@ -593,8 +595,6 @@ void controlPID() {
       Serial.println("RECOGIENDO PAPA");
       myEnc1.write(0);
       myEnc2.write(0);
-      angulo_objetivo1 = -20.0;
-      angulo_objetivo2 = 60.0;
       setState(ESPERAR);
 
     } else{
