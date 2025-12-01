@@ -49,6 +49,7 @@ class BagCoordTransNode(Node):
 
     def queue_coord_callback(self, msg):
         try:
+            self.get_logger().info(f'Llego un mensaje, guardando en cola')
             data = msg.data
             self.bag_coord_q.put_nowait(data)
 

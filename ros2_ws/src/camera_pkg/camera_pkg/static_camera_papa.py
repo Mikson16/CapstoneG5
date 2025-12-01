@@ -173,6 +173,7 @@ class StaticCameraPapaNode(Node):
             # self.get_logger().info(f'Enviando mensaje de la bbox de la bolsa')
                 # Publicar el mensaje con lsa coordenadas del respectivo pixel del centro
             try:
+                self.get_logger().info(f'Mandando coordenadas del centro')
                 msg = Int16MultiArray()
                 msg.data = [int(cx), int(cy)]
                 self.publisher.publish(msg)
