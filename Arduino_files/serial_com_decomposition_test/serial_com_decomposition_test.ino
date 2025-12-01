@@ -126,6 +126,13 @@ void procesarMensaje(String msg) {
       // Llamamos a la función visual
       mostrarScrollLCD(valM1, valM2, valServo);
     }
+  } else if (msg.indexOf("Stop") >= 0) {
+    lcd.clear();
+    lcd.setCursor(0,0); 
+    lcd.print("DATO RECIBIDO:");
+    lcd.setCursor(0,1);
+    lcd.print("STOP ");
+    delay(2000); // Muestra por 1.5 segundos
   } else {
     // Si el mensaje no es válido (ej. ruido o formato incorrecto)
     lcd.clear();
