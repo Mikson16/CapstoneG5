@@ -59,7 +59,7 @@ class ArduinoCoordPubNode(Node):
                 if data[0] == 1:
                 # estamos en una emergencia, de momento si se para, se para el sistema completo y hay que reiniciar el sistema completo
                     emergency_msg = String()
-                    emergency_msg.data = 'detenerse;M1:XX;M2:XX;S:XX;XXX' 
+                    emergency_msg.data = 'Stop;M1:XX;M2:XX;S:XX;XXX' 
                     self.emergency_pub.publish(emergency_msg)
                     self.get_logger().warning(f'Se ha activado un paro de emergencia, enviando al nodo serial la orden, reiniciar sistema')
                     self.stop_event.set() #Paralizo los hilos, hay que reiniciar el sistema
@@ -136,7 +136,7 @@ class ArduinoCoordPubNode(Node):
                     else: 
                         s_gamma = 0
                     coord_msg = String()
-                    coord_msg.data = f'moverse;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)};{s_theta_1}{s_theta_2}{s_gamma}'
+                    coord_msg.data = f'Mover;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)};{s_theta_1}{s_theta_2}{s_gamma}'
                     self.pub.publish(coord_msg)
                     self.get_logger().info(f'Enviando comando al comunicador serial')
             except Exception as e:
