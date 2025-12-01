@@ -66,7 +66,11 @@ class StaticCameraEmergencyNode(Node):
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
 
                 
-                # Naranjo
+                # Naranjo para lab
+                # lower_orange = np.array([12,  120,  120])
+                # upper_orange = np.array([20, 255, 255])
+
+                # Naranjo para tester
                 lower_orange = np.array([15,  130,  130])
                 upper_orange = np.array([18, 255, 255])
 

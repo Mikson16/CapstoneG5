@@ -87,8 +87,8 @@ class StaticCameraPapaNode(Node):
                 # upper_yellow = np.array([55, 235, 235]) #H, S, V
 
                 # Rangos para testear fuera del lab
-                lower_yellow = np.array([25, 135, 140])
-                upper_yellow = np.array([55, 235, 235])
+                lower_yellow = np.array([22, 150, 100])
+                upper_yellow = np.array([40, 255, 255])
 
                 #Rojo
                 # lower_red = np.array([0, 100, 100])
