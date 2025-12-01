@@ -56,7 +56,7 @@ class InvKinematicsNode(Node):
     def queue_coord_callback(self, msg):
         try:
             data = msg.data
-            self.get_logger().info(f'la data que esta llegando es: {data}')
+            # self.get_logger().info(f'la data que esta llegando es: {data}')
             self.bag_coord_q.put_nowait(data)
 
         except Full:
@@ -142,7 +142,7 @@ class InvKinematicsNode(Node):
                 msg.data = data
                 self.publisher.publish(msg)
 
-                self.get_logger().info(f'Enviando Grados: {data}')
+                self.get_logger().info(f'Enviando Grados desde la cinematica inversa: {data}')
 
             except Empty:
                 continue

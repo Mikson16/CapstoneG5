@@ -66,9 +66,13 @@ class StaticCameraEmergencyNode(Node):
                 frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
 
                 
-                # Naranjo
-                lower_orange = np.array([12,  120,  120])
-                upper_orange = np.array([20, 255, 255])
+                # Naranjo para lab
+                # lower_orange = np.array([12,  120,  120])
+                # upper_orange = np.array([20, 255, 255])
+
+                # Naranjo para tester
+                lower_orange = np.array([15,  130,  130])
+                upper_orange = np.array([18, 255, 255])
 
                 orange_mask = cv.inRange(frame_hsv, lower_orange, upper_orange)
 
@@ -117,7 +121,7 @@ class StaticCameraEmergencyNode(Node):
                     cv.circle(mask, (it['cx'], it['cy']), 6, (0,0,255), -1)
                     cv.putText(mask, f'EMG {int(it["area"])}', (it['cx']+5, it['cy']+15),
                                cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
-                cv.imshow('find orange', mask)
+                cv.imshow('find emergency', mask)
                 cv.waitKey(1)
             except Empty:
                 continue

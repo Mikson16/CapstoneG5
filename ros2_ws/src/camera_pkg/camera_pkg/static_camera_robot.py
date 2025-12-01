@@ -224,8 +224,10 @@ class StaticCameraRobotNode(Node):
                                 # self.get_logger().info('Enviando bbox colores')
                             except Exception as e:
                                 self.get_logger().warning(f'Problema al publicar el mensaje: {e}')
+                                continue
                 except Exception as e:
                     self.get_logger().warning(f'Error al enviar bbox de colores {e}')
+                    continue
                     
 
             except Empty:
@@ -246,7 +248,7 @@ class StaticCameraRobotNode(Node):
                     continue # En caso de que que alguno sea nulo no tomar en cuenta
 
                 # aplicar transformacion morfologica para unir las 2 segmentaciones, en caso de haber
-                kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+                kernel = cv.getStructuringElement(cv.MORPH_RECT, (40, 40))
                 closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
                 contours, hierarchy = cv.findContours(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE) # RETR especifica los extremos exteriores del contorno y CHAIN es un metodo de aproximoacion por compresion vertical, horizontal y diagonal

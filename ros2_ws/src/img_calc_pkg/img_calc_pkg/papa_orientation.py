@@ -125,7 +125,7 @@ class PapaOrientationNode(Node):
                 dist_2 = float(np.linalg.norm(pts[1] - pts[2]))
 
                 self.papa_bbox = pts
-                self.get_logger().info(f'Centro promedio: {cx, cy}, distancias: {dist_1, dist_2}')
+                # self.get_logger().info(f'Centro promedio: {cx, cy}, distancias: {dist_1, dist_2}')
 
                 if dist_1 > dist_2:
                     # significa que p1 con p2 y p3 con p4 son los lados mas grandes
@@ -155,13 +155,13 @@ class PapaOrientationNode(Node):
                 elif grados < -90:
                     grados += 180
                 
-                self.get_logger().info(f"GRADOS: {grados}")
+                # self.get_logger().info(f"GRADOS: {grados}")
                 self.ang_bolsa = int(round(grados))
 
                 try:
                     msg = Int16MultiArray()
                     msg.data = [self.ang_bolsa]
-                    self.get_logger().info(f'El mensaje que se esta enviando es {self.ang_bolsa}')
+                    # self.get_logger().info(f'El mensaje que se esta enviando es {self.ang_bolsa}')
                     self.publisher.publish(msg)
                 except Exception as e:
                     self.get_logger().warning(f"No se pudo publicar la orientacion la orientacion: {e}")

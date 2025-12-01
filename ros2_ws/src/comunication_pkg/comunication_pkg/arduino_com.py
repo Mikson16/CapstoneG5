@@ -49,8 +49,8 @@ class ArduinoComNode(Node):
         # self.serial_pub_thread = Thread(target=self.send_serial_msg, name = 'serial_pub_thread') # de momento no sera daemon
         # self.serial_pub_thread.start()
         # Usando un timer
-        # self.timer = self.create_timer(1.0, self.send_serial_msg)   
-        # self.send_serial_msg()
+        self.timer = self.create_timer(0.1, self.send_serial_msg)   
+        self.send_serial_msg()
 
     def emergency_callback(self, msg):
         try:
@@ -62,26 +62,17 @@ class ArduinoComNode(Node):
         
 
     def send_serial_msg(self):
-        # pedir el mensaje por consola
-        while not self._stop_event.is_set():
-            if self.msg is None:
-                time.sleep(0.1)
-                continue
 
-            try:
-                self.get_logger().info('Mandar mensaje serial')
-                # msg = str(input(f'Escribe un mensaje para mandar al arduino: ')) +'\n'
-                data = str(self.msg) + '\n'
-
-                try: 
-                    self.ser.write(self.msg.encode('utf-8'))
-                    self.get_logger().info(f'SE ESTA ENVIANDO EL MENSAJE {data}')
-                    self.msg = None # Para resetear y evitar que publique el mismo mensaje varias veces
-                except Exception as e:
-                    self.get_logger().error(f'[ARDUINO-COM]: Error escribiendo al serial: {e}')
-                
-            except Exception as e:
-                self.get_logger().error(f'ARDUINO-COM: Error en el loop de consola: {e}')
+        if self.msg is None:
+            return
+        try:
+            self.get_logger().info('Mandar mensaje serial')
+            data = str(self.msg) + '\n'
+            self.ser.write(data.encode('utf-8'))
+            self.get_logger().info(f'SE ESTA ENVIANDO EL MENSAJE {data}')
+            self.msg = None # Para resetear y evitar que publique el mismo mensaje varias veces
+        except Exception as e:
+            self.get_logger().error(f'[ARDUINO-COM]: Error escribiendo al serial: {e}')
 
 
     def coord_command_callback(self, msg):
@@ -99,13 +90,15 @@ class ArduinoComNode(Node):
         try:
             if hasattr(self, 'serial_pub_thread') and self.serial_pub_thread.is_alive():
                 self.serial_pub_thread.join(timeout=2.0)
+            self.timer.cancel()
         except Exception as e:
             self.get_logger().error(f'[ARDUINO-COM]: Error al unir hilo: {e}')
         self.get_logger().info('[ARDUINO-COM]: Hilos detenidos')
 
 def main(args=None):
     rclpy.init(args=args)
-    arduino_com_node = ArduinoComNode(port='/dev/ttyAMA0')# En caso de testear ocn arduino uno es /dev/ttyAMA0, con arduino mega /dev/ttyACM0
+    arduino_com_node = ArduinoComNode(port='/dev/ttyUSB0')# En caso de testear ocn arduino uno es /dev/ttyAMA0, con arduino mega /dev/ttyACM0
+    # /dev/ttyUSB0 Para arduino generico, hayq ue darle permisos
     # arduino_com_node.port('/dev/ttyACM0')
     rclpy.spin(arduino_com_node)
     arduino_com_node.destroy_threads()

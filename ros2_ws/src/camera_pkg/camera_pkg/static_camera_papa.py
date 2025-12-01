@@ -15,7 +15,7 @@ from threading import Thread
 from time import sleep
 import numpy as np
 from threading import Thread, Event
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 
 class StaticCameraPapaNode(Node):
     def __init__(self):
@@ -60,8 +60,11 @@ class StaticCameraPapaNode(Node):
         # Ingresar a la cola
         try:
             self.img_q.put_nowait(cv2_image)
-        except:
+        except Full:
             self.get_logger().warning('La cola de imagenes esta llena, se descarta la imagen actual')
+        except Exception as e:
+            self.get_logger().warning(f'Error al encolar imagen: {e}')
+            self.get_logger().debug(traceback.format_exc())
     
     def processing_loop(self):
         """
@@ -80,8 +83,12 @@ class StaticCameraPapaNode(Node):
 
                 # Definir rangos de color para detectar la bolsa de papa (amarillo), parametros ajustados a la iluminacion del lab
 
-                lower_yellow = np.array([25, 125, 125])
-                upper_yellow = np.array([55, 235, 235]) #H, S, V
+                # lower_yellow = np.array([25, 125, 125])
+                # upper_yellow = np.array([55, 235, 235]) #H, S, V
+
+                # Rangos para testear fuera del lab
+                lower_yellow = np.array([22, 150, 100])
+                upper_yellow = np.array([40, 255, 255])
 
                 #Rojo
                 # lower_red = np.array([0, 100, 100])
@@ -98,6 +105,8 @@ class StaticCameraPapaNode(Node):
 
                 # Mascara amarilla
                 yellow_mask = cv.inRange(frame_hsv, lower_yellow, upper_yellow)
+                kernel = cv.getStructuringElement(cv.MORPH_RECT, (35, 35))
+                yellow_mask = cv.morphologyEx(yellow_mask, cv.MORPH_CLOSE, kernel)
 
 
                 # Aplicar la mascara a la imagen original
@@ -164,6 +173,7 @@ class StaticCameraPapaNode(Node):
             # self.get_logger().info(f'Enviando mensaje de la bbox de la bolsa')
                 # Publicar el mensaje con lsa coordenadas del respectivo pixel del centro
             try:
+                self.get_logger().info(f'Mandando coordenadas del centro')
                 msg = Int16MultiArray()
                 msg.data = [int(cx), int(cy)]
                 self.publisher.publish(msg)
@@ -177,10 +187,6 @@ class StaticCameraPapaNode(Node):
             return False
         # return cx, cy
         ## Testear y mejorar en laboratorio
-
-
-        
-        
 
 
     def destroy_threads(self):

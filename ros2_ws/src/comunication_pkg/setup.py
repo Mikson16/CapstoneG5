@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         #Instalar launch files para que ros2 los encuentre
         ('share/' + package_name + '/launch', ['launch/launch_arduino_com.py']),
+        ('share/' + package_name + '/launch', ['launch/launch_all_wo_img.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

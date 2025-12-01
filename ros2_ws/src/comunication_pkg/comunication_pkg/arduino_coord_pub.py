@@ -111,7 +111,7 @@ class ArduinoCoordPubNode(Node):
 
                 self.last_kin = None
                 self.last_ori = None
-                self.get_logger().info(f'Loop de procesamiento, las coordenadas que hay son {kin}, {ori}')
+                # self.get_logger().info(f'Loop de procesamiento, las coordenadas que hay son {kin}, {ori}')
 
             # Procesar para el mensaje
             try:
@@ -136,11 +136,12 @@ class ArduinoCoordPubNode(Node):
                     else: 
                         s_gamma = 0
                     coord_msg = String()
-                    coord_msg.data = f'moverse;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)}:{s_theta_1}{s_theta_2}{s_gamma}'
+                    coord_msg.data = f'moverse;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)};{s_theta_1}{s_theta_2}{s_gamma}'
                     self.pub.publish(coord_msg)
                     self.get_logger().info(f'Enviando comando al comunicador serial')
             except Exception as e:
                 self.get_logger().warning(f'Error al enviar mensaje de cinematica: {e}')
+                continue
     
     def destroy_threads(self):
         """
