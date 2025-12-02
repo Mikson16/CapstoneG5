@@ -61,7 +61,7 @@ const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
 float kp1 = 4.0, ki1 = 0.05, kd1 = 0.01;
-float kp2 = 4.0, ki2 = 0.5, kd2 = 0.035;
+float kp2 = 4.0, ki2 = 0.5, kd2 = 0.02;
 
 const unsigned long Period_PID = 10000UL;
 
@@ -73,8 +73,8 @@ float angulo_objetivo2 = 0.0;
 float angulo_objetivo_servo = 0.0;
 
 // Posición de la caja (Coordenadas Absolutas)
-float angulo_caja1 = 10.0;
-float angulo_caja2 = 10.0;
+float angulo_caja1 = 0.0;
+float angulo_caja2 = 250;
 
 // Buffer Serial
 float next_M1 = 0.0;
@@ -98,6 +98,7 @@ bool flag_cambio = true;
 bool flag_bolsa = false;
 const int limit_vel1 = 22;
 const int limit_vel2 = 35; // Tu valor actualizado
+int current_limit2 = 0;
 
 // Variables Stepper
 volatile long pasos_restantes = 0;
@@ -259,7 +260,7 @@ void loop() {
             leerLimites();
           } else {
             ST.motor(canalM1, 0);
-            myEnc1.write(0); 
+           
             homing_sub_state = HOME_M2_FIND;
           }
           break;
@@ -269,6 +270,7 @@ void loop() {
           if (digitalRead(limite_lateral1)){
             leerLimites();
             ST.motor(canalM2, 0);
+            myEnc1.write(0); 
             myEnc2.write(0); 
             
             digitalWrite(DIR, HIGH); 
@@ -288,7 +290,10 @@ void loop() {
 
         case HOME_CENTRAR:
           if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-             homing_sub_state = HOME_SUBIR;
+            // digitalWrite(DIR, HIGH); 
+            // pasos_restantes = 1000;
+            // enable_step = true;
+            homing_sub_state = HOME_SUBIR;
           }
           break;
 
@@ -297,8 +302,9 @@ void loop() {
           ST.motor(canalM2, 0);
           
           if (pasos_restantes <= 0 && enable_step == false) {
-             homing_sub_state = HOME_DONE;
-             flag_limite_inferior = false;
+            digitalWrite(DIR, LOW);
+            homing_sub_state = HOME_DONE;
+            flag_limite_inferior = false;
           }
           break;
 
@@ -333,9 +339,10 @@ void loop() {
       
       // 2. Independientemente, si pulsan el botón, nos movemos
       if (digitalRead(boton_mover) == HIGH) {
-          setState(MOVIENDOSE);
-          lcd.clear();
-          lcd.print("MOVIENDOSE");  
+        lcd.clear();
+        lcd.print("MOVIENDOSE"); 
+        setState(MOVIENDOSE);
+           
       }  
       break;
 
@@ -344,6 +351,9 @@ void loop() {
 
       if (flag_detener || digitalRead(limite_lateral1)) {
         setState(STOP); 
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("DETENER");  
       }
 
       if (!flag_servo_listo){
@@ -369,6 +379,16 @@ void loop() {
     case RECOGER_PAPA:
       digitalWrite(DIR, LOW); 
       leerLimites();
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Ang1:");
+      lcd.setCursor(6,0);
+      lcd.print(angulo_actual1);
+      lcd.setCursor(0,1);
+      lcd.print("Ang2:");
+      lcd.setCursor(6,2);
+      lcd.print(angulo_actual2);
+
 
       if (!flag_limite_inferior) { 
         if (!digitalRead(CRTouch_Detection)){
@@ -495,13 +515,13 @@ void procesarMensaje(String msg) {
       
       if (endBit1 != -1) {
          int signM1 = msg.substring(startBit1, endBit1).toInt();
-         if (signM1 == 0) tempM1 = tempM1 * -1.0;
+         if (signM1 == 1) tempM1 = tempM1 * -1.0;
       }
 
       int startBit2 = endBit1 + 1; 
       if (startBit2 > 0 && startBit2 < msg.length()) {
           int signM2 = msg.substring(startBit2).toInt();
-          if (signM2 == 0) tempM2 = tempM2 * -1.0;
+          if (signM2 == 1) tempM2 = tempM2 * -1.0;
       }
     }
 
@@ -532,6 +552,9 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   long pos1 = myEnc2.read();
   interrupts();
 
+  int out1 = 0;
+  int out2 = 0;
+
   angulo_actual1 = (float)pos0 / COUNTS_PER_DEGREE1;
   angulo_actual2 = (float)pos1 / COUNTS_PER_DEGREE2;
 
@@ -551,18 +574,30 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   pid_output2 = (p2 * error_pid2) + (i2 * integral_pid2) + (d2 * derivada2);
   error_anterior2 = error_pid2;
 
-  // Límites
-  int out1 = constrain((int)pid_output1, -lim1, lim1); 
-  int out2 = constrain((int)pid_output2, -lim2, lim2);
+
+  if (flag_bolsa) {
+      // Si hay bolsa, limitamos la velocidad del motor 2 a la mitad (según tu lógica)
+    current_limit2 = (int)(limit_vel2 * 0.5);
+      // current_limit1 se queda igual según tu código anterior, pero puedes bajarlo aquí si quieres
+    // Si hay bolsa, limitamos la velocidad del motor 2 a la mitad
+    out1 = constrain((int)pid_output1, -(limit_vel1/1.15), (limit_vel1/1.15)); 
+    out2 = constrain((int)pid_output2, -(limit_vel2/2), (limit_vel2/2)); 
+    Serial.println("Limitando motores por papa --------------------------------");
+    out2 = out2/1.5;
+  } else{
+    out1 = constrain((int)pid_output1, -limit_vel1, limit_vel1); 
+    out2 = constrain((int)pid_output2, -limit_vel2, limit_vel2);
+  }
+  
 
   // Zona muerta
-  if (abs(error_pid1) < 1.0) out1 = 0;
-  else if (out1 > 0 && out1 < 16) out1 = 20; 
-  else if (out1 < 0 && out1 > -16) out1 = -20; 
+  // if (abs(error_pid1) < 1.0) out1 = 0;
+  // else if (out1 > 0 && out1 < 16) out1 = 20; 
+  // else if (out1 < 0 && out1 > -16) out1 = -20; 
 
-  if (abs(error_pid2) < 1.0) out2 = 0;
-  else if (out1 > 0 && out1 < 10) out1 = 15; 
-  else if (out1 < 0 && out1 > -10) out1 = -15; 
+  // if (abs(error_pid2) < 1.0) out2 = 0;
+  // else if (out1 > 0 && out1 < 10) out1 = 15; 
+  // else if (out1 < 0 && out1 > -10) out1 = -15; 
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
