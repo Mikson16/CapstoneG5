@@ -97,7 +97,7 @@ class ArduinoComNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    arduino_com_node = ArduinoComNode(port='/dev/ttyUSB0')# En caso de testear ocn arduino uno es /dev/ttyAMA0, con arduino mega /dev/ttyACM0
+    arduino_com_node = ArduinoComNode(port='/dev/ttyACM0')# En caso de testear ocn arduino uno es /dev/ttyAMA0, con arduino mega /dev/ttyACM0
     # /dev/ttyUSB0 Para arduino generico, hayq ue darle permisos
     # arduino_com_node.port('/dev/ttyACM0')
     rclpy.spin(arduino_com_node)

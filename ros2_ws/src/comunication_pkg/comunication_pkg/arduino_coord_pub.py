@@ -122,19 +122,19 @@ class ArduinoCoordPubNode(Node):
                     gamma = ori[0]
                     # signos
                     if theta_1 >= 0:
-                        s_theta_1 = 1
-                    else: 
                         s_theta_1 = 0
+                    else: 
+                        s_theta_1 = 1
 
                     if theta_2 >= 0:
-                        s_theta_2 = 1
-                    else: 
                         s_theta_2 = 0
+                    else: 
+                        s_theta_2 = 1
 
                     if gamma >= 0:
-                        s_gamma = 1
-                    else: 
                         s_gamma = 0
+                    else: 
+                        s_gamma = 1
                     coord_msg = String()
                     coord_msg.data = f'Mover;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)};{s_theta_1}{s_theta_2}{s_gamma}'
                     self.pub.publish(coord_msg)
