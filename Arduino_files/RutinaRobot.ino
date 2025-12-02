@@ -1,5 +1,10 @@
 ///// LIBRERIAS //////////////////
-#include <LiquidCrystal_I2C.h>
+// Variables para el filtro de la derivada (AGREGAR AL INICIO CON LAS GLOBALES)
+float last_derivative1 = 0.0;
+float last_derivative2 = 0.0;
+const float alpha = 0.7; // Factor de suavizado (0.0 a 1.0)
+
+#include <LiquidCrystal_I2C.h> // Asegúrate de incluir esta si usas LCD
 #include <TimerOne.h>
 #include <Servo.h>
 #include <Sabertooth.h>
@@ -60,11 +65,12 @@ const int limite_lateral1 = 53;
 const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
-// float kp1 = 4.0, ki1 = 0.05, kd1 = 0.01;
-// float kp2 = 4.0, ki2 = 0.5, kd2 = 0.005;
-float kp1 = 3.0, ki1 = 0.2, kd1 = 0.01;
-float kp2 = 2.5, ki2 = 0.4, kd2 = 0.00;
-// float kp2 = 2.0, ki2 = 0.25, kd2 = 0.03;
+// float kp1 = 3.0, ki1 = 0.3, kd1 = 0.02;
+// float kp2 = 2.5, ki2 = 0.4, kd2 = 0.00;
+// float kp1 = 3.0, ki1 = 0.26, kd1 = 0.02;
+float kp1 = 3.0, ki1 = 0.0001, kd1 = 0.00;
+float kp2 = 2.5, ki2 = 0.0001, kd2 = 0.000;
+
 
 const unsigned long Period_PID = 10000UL;
 
@@ -74,10 +80,12 @@ float angulo_actual2 = 0.0;
 float angulo_objetivo1 = 0.0; 
 float angulo_objetivo2 = 0.0;
 float angulo_objetivo_servo = 0.0;
+float angulo_max1 = 0.0;
+float angulo_max2 = 0.0;
 
 // Posición de la caja (Coordenadas Absolutas)
-float angulo_caja1 = 0.0;
-float angulo_caja2 = 250;
+float angulo_caja1 = 10.0;
+float angulo_caja2 = 192;
 
 // Buffer Serial
 float next_M1 = 0.0;
@@ -103,6 +111,7 @@ const int limit_vel1 = 22;
 const int limit_vel2 = 35; // Tu valor actualizado
 int current_limit2 = 0;
 int counter_papas = 0;
+int max_papas = 20;
 // Variables Stepper
 volatile long pasos_restantes = 0;
 volatile bool enable_step = false;
@@ -220,7 +229,8 @@ void setup() {
 void loop() {
   leerSerialNoBloqueante();
 
-  switch (state) {
+  if (counter_papas<max_papas){
+    switch (state) {
     case INICIO:
       ST.motor(canalM1, 0); ST.motor(canalM2, 0);
       enable_step = false;
@@ -253,9 +263,23 @@ void loop() {
             enable_step = true;
           } else {
             enable_step = false;
-            homing_sub_state = HOME_M1_FIND;
+            homing_sub_state = HOME_SUBIR;
+            digitalWrite(DIR, HIGH); 
+            pasos_restantes = 1000;
+            enable_step = true;
           }
-          break;
+        break;
+
+        case HOME_SUBIR:
+          ST.motor(canalM1, 0);
+          ST.motor(canalM2, 0);
+          
+          if (pasos_restantes <= 0 && enable_step == false) {
+             digitalWrite(DIR, LOW);
+             homing_sub_state = HOME_M1_FIND;
+             flag_limite_inferior = false;
+          }
+        break;
 
         case HOME_M1_FIND:
         leerLimites();
@@ -275,18 +299,13 @@ void loop() {
             leerLimites();
             ST.motor(canalM2, 0);
             myEnc2.write(0); 
-            
-            digitalWrite(DIR, HIGH); 
-            pasos_restantes = 1000;
-            enable_step = true;
-            
             // Configurar pose conocida
             angulo_objetivo1 = 90.0;
-            angulo_objetivo2 = 153.0; // Tu valor actualizado
-            
+            angulo_objetivo2 = 155.0; // Tu valor actualizado       
             // Reset PID antes de empezar a controlar
             resetPID(); 
             homing_sub_state = HOME_CENTRAR;
+            delay(100);
           } else {
             ST.motor(canalM2, -13); 
             leerLimites();
@@ -295,18 +314,7 @@ void loop() {
 
         case HOME_CENTRAR:
           if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-             homing_sub_state = HOME_SUBIR;
-          }
-          break;
-
-        case HOME_SUBIR:
-          ST.motor(canalM1, 0);
-          ST.motor(canalM2, 0);
-          
-          if (pasos_restantes <= 0 && enable_step == false) {
-             digitalWrite(DIR, LOW);
              homing_sub_state = HOME_DONE;
-             flag_limite_inferior = false;
           }
           break;
 
@@ -341,7 +349,7 @@ void loop() {
         lcd.print("MOVIENDOSE"); 
         
         // RESET DE PID AL INICIAR NUEVA RUTA
-        resetPID(); 
+        // resetPID(); 
         setState(MOVIENDOSE);
       }  
       break;
@@ -471,6 +479,10 @@ void loop() {
         }
       break;
   }
+
+  }
+
+  
 }
 
 // =====================
@@ -530,12 +542,16 @@ void procesarMensaje(String msg) {
       }
     }
 
-    next_M1 = tempM1;
-    next_M2 = tempM2;
+    // next_M1 = -tempM1;
+    // next_M2 = -tempM2;
+    // next_S = tempS;
+
+    next_M1 = tempM2;
+    next_M2 = tempM1;
     next_S = tempS;
     
     flag_comando_recibido = true; 
-  } else if (msg.indexOf("Stop") >= 0) {
+  } else if (msg.indexOf("Stop RASPI") >= 0) {
     flag_detener = true;
     setState(STOP);
   }
@@ -547,10 +563,12 @@ void resetPID() {
   integral_pid2 = 0;
   error_anterior1 = 0; 
   error_anterior2 = 0;
-  // También reiniciamos el tiempo para que el primer dt no sea enorme
+  last_derivative1 = 0; // Reset filtro
+  last_derivative2 = 0; // Reset filtro
   time_ant_pid = micros(); 
 }
 
+// PID OPTIMIZADO: Filtro derivativo y control suave
 bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2) {
   
   if (micros() - time_ant_pid < Period_PID) return false; 
@@ -566,58 +584,92 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   angulo_actual1 = (float)pos0 / COUNTS_PER_DEGREE1;
   angulo_actual2 = (float)pos1 / COUNTS_PER_DEGREE2;
 
-  // PID M1
+  if (angulo_max1 < angulo_actual1){
+    angulo_max1 = angulo_actual1;
+  }
+
+  if (angulo_max2 < angulo_actual2){
+    angulo_max2 = angulo_actual2;
+  }
+ 
+
+  // --- PID M1 ---
   error_pid1 = angulo_objetivo1 - angulo_actual1;
   integral_pid1 += error_pid1 * dt;
   integral_pid1 = constrain(integral_pid1, -60, 60); 
-  float derivada1 = (error_pid1 - error_anterior1) / dt;
-  pid_output1 = (p1 * error_pid1) + (i1 * integral_pid1) + (d1 * derivada1);
+  
+  // Derivada Filtrada (Low Pass Filter) para reducir vibración
+  float raw_derivative1 = (error_pid1 - error_anterior1) / dt;
+  float derivative1 = alpha * last_derivative1 + (1.0 - alpha) * raw_derivative1;
+  last_derivative1 = derivative1;
+  
+  pid_output1 = (p1 * error_pid1) + (i1 * integral_pid1) + (d1 * derivative1);
   error_anterior1 = error_pid1;
 
-  // PID M2
+  // --- PID M2 ---
   error_pid2 = angulo_objetivo2 - angulo_actual2;
   integral_pid2 += error_pid2 * dt;
   integral_pid2 = constrain(integral_pid2, -50, 50); 
-  float derivada2 = (error_pid2 - error_anterior2) / dt;
-  pid_output2 = (p2 * error_pid2) + (i2 * integral_pid2) + (d2 * derivada2);
+  
+  // Derivada Filtrada M2
+  float raw_derivative2 = (error_pid2 - error_anterior2) / dt;
+  float derivative2 = alpha * last_derivative2 + (1.0 - alpha) * raw_derivative2;
+  last_derivative2 = derivative2;
+
+  pid_output2 = (p2 * error_pid2) + (i2 * integral_pid2) + (d2 * derivative2);
   error_anterior2 = error_pid2;
 
-  // Límites
-  int out1 = constrain((int)pid_output1, -lim1, lim1); 
-  int out2 = constrain((int)pid_output2, -lim2, lim2);
+  // --- LÓGICA DE SALIDAS ---
+  int out1, out2;
 
-  // Zona muerta
-
-  if (flag_bolsa){
-
-  }else{
-    if (abs(error_pid1) < 1.0) out1 = 0;
-    else if (out1 > 0 && out1 < 16) out1 = 20; 
-    else if (out1 < 0 && out1 > -16) out1 = -20; 
-
-    if (abs(error_pid2) < 1.0) out2 = 0;
-    else if (out2 > 0 && out2 < 10) out2 = 15; 
-    else if (out2 < 0 && out2 > -10) out2 = -15; 
+  if (flag_bolsa) {
+    current_limit2 = (int)(limit_vel2 * 0.5);
+    out1 = constrain((int)pid_output1, -(int)(limit_vel1/1.15), (int)(limit_vel1/1.15));
+    // out2 = out2/1.5; // Esto estaba operando sobre basura antes de asignar
+    out2 = constrain((int)pid_output2, -current_limit2, current_limit2); 
+    
+  } else {
+    out1 = constrain((int)pid_output1, -limit_vel1, limit_vel1); 
+    out2 = constrain((int)pid_output2, -limit_vel2, limit_vel2);
   }
   
+  // --- ZONA MUERTA INTELIGENTE (CORREGIDA) ---
+  // Si estamos MUY cerca, apagamos. Si estamos cerca pero no tanto,
+  // dejamos que el PID (especialmente la Integral) haga el trabajo suave
+  // en vez de forzar un valor de 20.
+  
+  if (abs(error_pid1) < 1.0) out1 = 0; // Apagado estricto si el error es casi nulo
+  // Eliminado el "else if (out1 < 16) out1 = 20" que causaba la vibración.
+  // Si el motor necesita fuerza mínima para moverse (stiction), 
+  // aumenta un poco Ki (integral) en lugar de forzarlo aquí.
+
+  if (abs(error_pid2) < 1.0) out2 = 0;
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
 
-  Serial.println("out1");
-  Serial.println(-out1);
-  Serial.println("out2");
-  Serial.println(out2);
+  // Serial.println("Error pid 1");
+  // Serial.println(error_pid1);
+  // Serial.println("Error pid 2");
+  // Serial.println(error_pid2);
 
 
-  if (abs(error_pid1) < 1.0 && abs(error_pid2) < 1.0) { // Tolerancia ajustada a 1.0
-      // FRENAR MOTORES AL TERMINAR
-      ST.motor(canalM1, 0);
-      ST.motor(canalM2, 0);
-      return true;
-  } else {
-      return false;
+  // Debug (comenta para producción)
+  // Serial.print("E1:"); Serial.print(error_pid1); Serial.print(" O1:"); Serial.println(-out1);
+
+  if (abs(error_pid1) < 1.0 && abs(error_pid2) < 1.0) { 
+      // Verificar también que la velocidad sea baja para asegurar estabilidad
+      if (abs(derivative1) < 5.0 && abs(derivative2) < 5.0) {
+          ST.motor(canalM1, 0);
+          ST.motor(canalM2, 0);
+          // Serial.println("ANg Max");
+          // Serial.println(angulo_max1);
+          resetPID();
+          return true;
+      }
   }
+  
+  return false;
 }
 
 void setState(State s) {
