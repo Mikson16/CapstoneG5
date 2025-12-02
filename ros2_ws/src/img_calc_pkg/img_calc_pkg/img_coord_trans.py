@@ -17,11 +17,13 @@ class BagCoordTransNode(Node):
         super().__init__('bag_coord_trans_node')
         self.get_logger().info('[Transform Node]: Iniciado. Esperando coordenadas...')
 
-        # --- 1. CALIBRACIÓN FÍSICA (AJUSTAR AQUÍ) ---
+        # --- 1. CALIBRACIÓN FÍSICA ---
+        self.ALTURA_CAMARA_MM = 1140.0
+        self.ALTURA_PAPA_MM = -100.0
         
         # Factor de escala (mm por pixel)
         # Calculado con altura 115cm. Si el ancho real visto por la camara es ~56cm en 640px -> 0.875
-        self.MM_PER_PIXEL = 0.8797 
+        self.scale = 0.877192 
 
         # Centro de la imagen (Pixel)
         self.IMG_CENTER_X = float(520/2) # Asumiendo resolución 640x480
@@ -30,12 +32,15 @@ class BagCoordTransNode(Node):
         # POSICIÓN DE LA CÁMARA RESPECTO AL ROBOT
         # Mide con una regla desde la BASE DEL ROBOT hasta el punto en la mesa
         # que cae justo en el centro de la imagen.
-        self.ROBOT_OFFSET_X = 302.0 # mm (Distancia X desde base a centro imagen)
+        self.ROBOT_OFFSET_X = 310.0 # mm (Distancia X desde base a centro imagen)
         self.ROBOT_OFFSET_Y = 286.0 # mm (Distancia Y desde base a centro imagen)
 
         # Desplazamiento base
-        self.desp_x = - 30.0 # 3 cm
-        self.desp_y = - 100.0 # 10 cm
+        self.desp_x = 0#- 30.0 # 3 cm
+        self.desp_y = 0#- 100.0 # 10 cm
+
+        # FACTORES DE CORRECCION
+        self.K_DISTORTION = 2.1553e-5
 
         # --- 2. CONFIGURACIÓN DE EJES (LA CLAVE DEL PROBLEMA) ---
         # Cambia estos True/False observando los resultados
@@ -63,35 +68,50 @@ class BagCoordTransNode(Node):
             raw_v = float(msg.data[1]) # Pixel Y
 
             if raw_u == 0 and raw_v == 0:
-                return # Filtrar ceros si es necesario
+                return 
 
             # 2. Centrar coordenadas (Origen en el centro de la imagen)
             # u_centrado positivo = derecha del centro
             # v_centrado positivo = abajo del centro
-            u_centered = (raw_u - self.IMG_CENTER_X) * self.MM_PER_PIXEL
-            v_centered = (raw_v - self.IMG_CENTER_Y) * self.MM_PER_PIXEL
+            u_centered = (raw_u - self.IMG_CENTER_X) 
+            v_centered = (raw_v - self.IMG_CENTER_Y)
 
-            # 3. Aplicar Transformación de Ejes (Matriz de Rotación simplificada)
-            # Esto alinea el sistema de la cámara con el del robot
-            
-            val_x = u_centered
-            val_y = v_centered
+            # Correccion de distorcion por radio
+            r2 = u_centered **2 + v_centered **2
+            # Factor de correccion polinomica
+            radial_factor = 1.0 + (self.K_DISTORTION * r2)
+
+            u_sin_dist = u_centered * radial_factor
+            v_sin_dist = v_centered * radial_factor
+
+            # Correccion de paralaje
+            factor_h = (self.ALTURA_CAMARA_MM - self.ALTURA_PAPA_MM) / self.ALTURA_CAMARA_MM
+
+            u_correct = u_sin_dist * factor_h
+            v_correct = v_sin_dist * factor_h
+
+            # Escalado lineal
+            x = u_correct * self.scale
+            y = v_correct * self.scale
+
 
             # Intercambio (si la cámara está rotada 90 grados)
             if self.SWAP_XY:
-                val_x, val_y = val_y, val_x
+                x, y = y, x
             
             # Inversión de dirección (según hacia donde apunte el eje del robot)
             if self.INVERT_X:
-                val_x = -val_x
+                x = -x
             
             if self.INVERT_Y:
-                val_y = -val_y
+                y = -y
+
+
 
             # 4. Traslación al Origen del Robot
             # Sumamos el offset para llevar el (0,0) de la imagen al (302, 286) del robot
-            robot_x = int(self.ROBOT_OFFSET_X + val_x - self.desp_x)
-            robot_y = int(self.ROBOT_OFFSET_Y + val_y - self.desp_y)
+            robot_x = int(self.ROBOT_OFFSET_X + x - self.desp_x)
+            robot_y = int(self.ROBOT_OFFSET_Y + y - self.desp_y)
 
             # 5. Publicar y Debug
             # self.get_logger().info(f'In(Px):{raw_u:.0f},{raw_v:.0f} -> Out(mm): X={robot_x}, Y={robot_y}')
@@ -101,7 +121,7 @@ class BagCoordTransNode(Node):
             self.publisher.publish(out_msg)
 
             # Visualización (Opcional, abre ventana en el PC del robot)
-            # self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
+            self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
 
         except Exception as e:
             self.get_logger().error(f'Error procesando coordenadas: {e}')

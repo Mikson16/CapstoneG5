@@ -35,7 +35,7 @@ class InvKinematicsNode(Node):
 
         # Parametros
         self.coords = None # coordenadas x, y del centro de la bolsa
-        self.largo_1 = 408.0 # mm  #  Largo del eslabon 1
+        self.largo_1 = 400.0 # mm  #  Largo del eslabon 1
         self.largo_2 = 210.0  #mm  # Largo del eslabon 2
 
         self.origen_base = 0.0 # None # en radianes
@@ -230,10 +230,10 @@ class InvKinematicsNode(Node):
                 msg.data = data
                 self.publisher.publish(msg)
                 # 4. DIBUJAR BRAZO
-                # try:
-                #     self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
-                # except Exception as e:
-                #     self.get_logger().warning(f"Error dibujo: {e}")
+                try:
+                    self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
+                except Exception as e:
+                    self.get_logger().warning(f"Error dibujo: {e}")
 
                 # self.get_logger().info(f'Enviando Grados desde la cinematica inversa: {data}')
 

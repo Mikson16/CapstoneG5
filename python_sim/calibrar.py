@@ -46,6 +46,10 @@ print("5. Presiona 'q' para salir.")
 while True:
     ret, frame = cap.read()
     if not ret: break
+    frame = frame[:, 70: - 50,:]
+    print(frame.shape)
+    y, x, _ = frame.shape 
+    cv2.circle(frame, (int(x/2), int(y/2)), 1 ,(255, 255, 255), -1)
 
     # Dibujar los puntos si existen
     if punto1:
