@@ -10,12 +10,25 @@ const float alpha = 0.7; // Factor de suavizado (0.0 a 1.0)
 #include <Sabertooth.h>
 #include <Encoder.h>
 
-// ===== CONFIGURACIÓN ROBOT =====
-const float k_coreccion= 1.00;
-const float COUNTS_PER_REV_ARM = 1920*3; 
-const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
-const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
+// COORDENADAS CAJA
+struct Coordenada {
+  int m1;
+  int m2;
+};
 
+// 2. Creamos la lista de coordenadas (Array de structs)
+const int NUM_PASOS = 6;
+
+Coordenada coordenadas_caja[NUM_PASOS] = {
+  {10, 192},  // Paso 0
+  {31, 228},  // Paso 1
+  {28, 257},  // Paso 2
+  {13, 224},  // Paso 3
+  {11, 281},  // Paso 4
+  {1,  249}   // Paso 5
+};
+
+// ===== CONFIGURACIÓN ROBOT =====
 int canalM1 = 1;
 int canalM2 = 2;
 
@@ -43,7 +56,6 @@ enum Homing_State {
 };
 
 Homing_State homing_sub_state = HOME_START;
-
 State state = INICIO;
 State lastState = INICIO;
 
@@ -65,22 +77,27 @@ const int limite_inferior = 23;
 const int limite_lateral1 = 53;
 const int limite_lateral2 = 51;
 
-// ===== VARIABLES PID =====
-// float kp1 = 3.0, ki1 = 0.3, kd1 = 0.02;
-// float kp2 = 2.5, ki2 = 0.4, kd2 = 0.00;
-// float kp1 = 3.0, ki1 = 0.26, kd1 = 0.02;
+//CONSTANTES PID
+const float k_coreccion= 1.00;
+const float COUNTS_PER_REV_ARM = 1920*3; 
+const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
+const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
 float kp1 = 3.0, ki1 = 0.0001, kd1 = 0.00;
 float kp2 = 2.5, ki2 = 0.0001, kd2 = 0.000;
-
-
 const unsigned long Period_PID = 10000UL;
+unsigned long time_ant_pid = 0;
+
 
 // Variables de Control
-
 float window_error1 = 6.0;
 int counter_window1 = 0;
 int window_length1 = 10;
 float ki_actual1 = 0.0;
+
+float window_error2 = 6.0;
+int counter_window2 = 0;
+int window_length2 = 10;
+float ki_actual2 = 0.0;
 
 float angulo_actual1 = 0.0;
 float angulo_actual2 = 0.0;
@@ -90,22 +107,21 @@ float angulo_objetivo_servo = 0.0;
 float error_estacionario = 0.0;
 float angulo_max1 = 0.0;
 float angulo_max2 = 0.0;
+float error_pid1 = 0, integral_pid1 = 0, error_anterior1 = 0;
+float error_pid2 = 0, integral_pid2 = 0, error_anterior2 = 0;
+float pid_output1 = 0;
+float pid_output2 = 0;
+const int limit_vel1 = 22;
+const int limit_vel2 = 35;
 
-// Posición de la caja (Coordenadas Absolutas)
-float angulo_caja1 = 10.0;
-float angulo_caja2 = 192;
-
+// Comunicación
+String buffer = "";
+volatile bool flag_detener = false;
 // Buffer Serial
 float next_M1 = 0.0;
 float next_M2 = 0.0;
 float next_S = 0.0;
 bool flag_comando_recibido = false; 
-
-float error_pid1 = 0, integral_pid1 = 0, error_anterior1 = 0;
-float error_pid2 = 0, integral_pid2 = 0, error_anterior2 = 0;
-
-float pid_output1 = 0;
-float pid_output2 = 0;
 
 // ===== VARIABLES SISTEMA =====
 bool flag_limite_inferior = false;
@@ -115,31 +131,23 @@ bool flag_servo_listo = false;
 bool flag_centro = false;
 bool flag_cambio = true;
 bool flag_bolsa = false;
-const int limit_vel1 = 22;
-const int limit_vel2 = 35; // Tu valor actualizado
+
+//
 int current_limit2 = 0;
 int counter_papas = 0;
 int max_papas = 20;
+
 // Variables Stepper
 volatile long pasos_restantes = 0;
 volatile bool enable_step = false;
 volatile bool step_pin_state = false;
 
-// Objetos Encoder
-Encoder myEnc1(3, 2); // Pines actualizados segun tu codigo
-Encoder myEnc2(18, 19); 
-
-// Tiempos
-unsigned long time_ant_pid = 0;
-
-// Comunicación
-String buffer = "";
-volatile bool flag_detener = false;
-
 // COMPONENTES
 Sabertooth ST(128, Serial2);
 Servo MG995_Servo;
 Servo cr_touch;
+Encoder myEnc1(3, 2);
+Encoder myEnc2(18, 19); 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // =====================
@@ -335,8 +343,6 @@ void loop() {
 
       case HOME_DONE:
         homing_sub_state = HOME_START;
-        // angulo_objetivo1 = 6.0;
-        // angulo_objetivo2 = 93.0;
         lcd.clear();
         lcd.print("IR POR ");
         lcd.setCursor(0,1);
@@ -445,8 +451,8 @@ void loop() {
       
       if (pasos_restantes <= 0) {
           enable_step = false;
-          angulo_objetivo1 = angulo_caja1;
-          angulo_objetivo2 = angulo_caja2;
+          angulo_objetivo1 = coordenadas_caja[counter_papas].m1;
+          angulo_objetivo2 = coordenadas_caja[counter_papas].m2;
           // flag_comando_recibido = true;
           
           // RESET PID ANTES DE MOVER A CAJA
@@ -618,11 +624,23 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   if (abs(error_pid1) < window_error1 && abs(error_pid1) > 1.0) {
     counter_window1++;
     if (counter_window1 >= window_length1){
-      ki_actual1 = 200.0 * i1; // Boost de fuerza integral
+      ki_actual1 = 250.0 * i1; // Boost de fuerza integral
     }
   } else {
     counter_window1 = 0; // Resetear si salimos de la condición
   }
+
+  ki_actual2 = i2;
+
+  if (abs(error_pid2) < window_error2 && abs(error_pid2) > 1.0) {
+    counter_window2++;
+    if (counter_window2 >= window_length2){
+      ki_actual2 = 250.0 * i2; // Boost de fuerza integral
+    }
+  } else {
+    counter_window2 = 0; // Resetear si salimos de la condición
+  }
+
 
   integral_pid1 += error_pid1 * dt;
   integral_pid1 = constrain(integral_pid1, -60, 60); 
@@ -645,7 +663,7 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   float derivative2 = alpha * last_derivative2 + (1.0 - alpha) * raw_derivative2;
   last_derivative2 = derivative2;
 
-  pid_output2 = (p2 * error_pid2) + (i2 * integral_pid2) + (d2 * derivative2);
+  pid_output2 = (p2 * error_pid2) + (ki_actual2 * integral_pid2) + (d2 * derivative2);
   error_anterior2 = error_pid2;
 
   // --- LÓGICA DE SALIDAS ---
