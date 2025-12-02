@@ -111,18 +111,19 @@ class StaticCameraEmergencyNode(Node):
 
                 # Descomentar solo para visualizacion
                 # dibujar todos los contornos y centroides (info)
-                # cv.drawContours(mask, contours, -1, (0,255,0), 2)
-                # for it in centroids:
-                #     cv.circle(mask, (it['cx'], it['cy']), 4, (255,0,0), -1)
-                #     cv.putText(mask, f'{int(it["area"])}', (it['cx']+5, it['cy']-5),
-                #                cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
-                # # destacar contornos que superen min_area (posible emergencia)
-                # for it in valids:
-                #     cv.circle(mask, (it['cx'], it['cy']), 6, (0,0,255), -1)
-                #     cv.putText(mask, f'EMG {int(it["area"])}', (it['cx']+5, it['cy']+15),
-                #                cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
+                cv.drawContours(mask, contours, -1, (0,255,0), 2)
+                for it in centroids:
+                    cv.circle(mask, (it['cx'], it['cy']), 4, (255,0,0), -1)
+                    cv.putText(mask, f'{int(it["area"])}', (it['cx']+5, it['cy']-5),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+                # destacar contornos que superen min_area (posible emergencia)
+                for it in valids:
+                    cv.circle(mask, (it['cx'], it['cy']), 6, (0,0,255), -1)
+                    cv.putText(mask, f'EMG {int(it["area"])}', (it['cx']+5, it['cy']+15),
+                               cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
                 # cv.imshow('find emergency', mask)
                 # cv.waitKey(1)
+                
             except Empty:
                 continue
             except Exception as e:

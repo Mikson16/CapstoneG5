@@ -115,8 +115,8 @@ class StaticCameraPapaNode(Node):
                 # self.get_logger().info(f"El centro horizontal del objeto se encuentra en: {center}")
 
                 # Mostrar imagen para testeo
-                # cv.imshow('Static Camera Papa Detection', self.result)
-                # cv.waitKey(1)
+                cv.imshow('Static Camera Papa Detection', self.result)
+                cv.waitKey(1)
 
             except Empty:
                 frame = None

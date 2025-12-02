@@ -44,8 +44,8 @@ class StaticCameraNode(Node):
             # center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
             # cv2.circle(frame, center, 10, (0, 255, 0), -1)
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
-            # cv2.imshow('Static Camera Node', frame)
-            # cv2.waitKey(1)
+            cv2.imshow('Static Camera Node', frame)
+            cv2.waitKey(1)
             self.publisher.publish(msg)
         else:
             self.get_logger().error('No se pudo capturar la imagen de la camara')
