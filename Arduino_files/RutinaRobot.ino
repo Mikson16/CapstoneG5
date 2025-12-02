@@ -28,6 +28,7 @@ enum State {
   RECOGER_PAPA,
   SUBIENDO_CON_PAPA,
   SOLTAR_PAPA,
+  FIN_RUTINA,
   STOP
 };
 
@@ -229,260 +230,266 @@ void setup() {
 void loop() {
   leerSerialNoBloqueante();
 
-  if (counter_papas<max_papas){
-    switch (state) {
-    case INICIO:
-      ST.motor(canalM1, 0); ST.motor(canalM2, 0);
-      enable_step = false;
-      flag_comando_recibido = false;
-      leerLimites();
-      
-      if (digitalRead(boton_mover)){
-          setState(CENTRANDO);
-          lcd.clear();
-          lcd.print("CENTRANDO");
-      }
-      break;
-
-    case CENTRANDO:
-      leerLimites();
-
-      switch (homing_sub_state) {
-        case HOME_START:
-          ST.motor(canalM1, 0);
-          ST.motor(canalM2, 0);
-          enable_step = false;
-          homing_sub_state = HOME_Z_DOWN;
-          break;
-
-        case HOME_Z_DOWN:
-          leerLimites();
-          if (!flag_limite_inferior) {
-            digitalWrite(DIR, LOW); 
-            pasos_restantes = 999999; 
-            enable_step = true;
-          } else {
-            enable_step = false;
-            homing_sub_state = HOME_SUBIR;
-            digitalWrite(DIR, HIGH); 
-            pasos_restantes = 1000;
-            enable_step = true;
-          }
-        break;
-
-        case HOME_SUBIR:
-          ST.motor(canalM1, 0);
-          ST.motor(canalM2, 0);
-          
-          if (pasos_restantes <= 0 && enable_step == false) {
-             digitalWrite(DIR, LOW);
-             homing_sub_state = HOME_M1_FIND;
-             flag_limite_inferior = false;
-          }
-        break;
-
-        case HOME_M1_FIND:
-        leerLimites();
-          if (!flag_centro) {
-            ST.motor(canalM1, 20); 
-            leerLimites();
-          } else {
-            ST.motor(canalM1, 0);
-            myEnc1.write(0); 
-            homing_sub_state = HOME_M2_FIND;
-          }
-          break;
-
-        case HOME_M2_FIND:
-          leerLimites();
-          if (digitalRead(limite_lateral1)){
-            leerLimites();
-            ST.motor(canalM2, 0);
-            myEnc2.write(0); 
-            // Configurar pose conocida
-            angulo_objetivo1 = 90.0;
-            angulo_objetivo2 = 155.0; // Tu valor actualizado       
-            // Reset PID antes de empezar a controlar
-            resetPID(); 
-            homing_sub_state = HOME_CENTRAR;
-            delay(100);
-          } else {
-            ST.motor(canalM2, -13); 
-            leerLimites();
-          }
-          break;
-
-        case HOME_CENTRAR:
-          if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-             homing_sub_state = HOME_DONE;
-          }
-          break;
-
-        case HOME_DONE:
-          homing_sub_state = HOME_START;
-          lcd.clear();
-          lcd.print("IR POR ");
-          lcd.setCursor(0,1);
-          lcd.print("PAPA");
-          setState(ESPERANDO_PAPA);
-          break;
-      }
-      break;
-
-    case ESPERANDO_PAPA:
-      if (flag_comando_recibido){
-        angulo_objetivo1 = next_M1;
-        angulo_objetivo2 = next_M2;
-        angulo_objetivo_servo = next_S;
-        
-        flag_comando_recibido = false;
-        
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("M1:"); lcd.print(next_M1, 1);
-        lcd.setCursor(8,0);
-        lcd.print("M2:"); lcd.print(next_M2, 1);
-      } 
-      
-      if (digitalRead(boton_mover) == HIGH) {
-        lcd.clear();
-        lcd.print("MOVIENDOSE"); 
-        
-        // RESET DE PID AL INICIAR NUEVA RUTA
-        // resetPID(); 
-        setState(MOVIENDOSE);
-      }  
-      break;
-
-    case MOVIENDOSE:
-      leerLimites();
-
-      if (flag_detener || digitalRead(limite_lateral1)) {
-        setState(STOP); 
-        lcd.clear();
-        lcd.setCursor(0,0);
-        lcd.print("DETENER");  
-      }
-
-      if (!flag_servo_listo){
-          MG995_Servo.write(angulo_objetivo_servo);
-          flag_servo_listo = true;
-      } 
-
-      // Ajuste dinámico de límites segun si llevamos bolsa
-      int l1, l2;
-      if (flag_bolsa) {
-         l1 = (int)(limit_vel1 / 1.15); // Un poco mas lento
-         l2 = (int)(limit_vel2 / 2.0);  // Bastante mas lento en brazo
-      } else {
-         l1 = limit_vel1;
-         l2 = limit_vel2;
-      }
-
-      if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1, l2)){
-        setState(ESPERAR);
-        lcd.clear();
-        lcd.print("EN POSICION");
-      }
-      break;
-
-    case ESPERAR:
-      if (digitalRead(boton_mover)){
-        setState(RECOGER_PAPA);
-        lcd.clear();
-        lcd.print("BAJANDO...");
-      }
-      break;
-
-    case RECOGER_PAPA:
-      digitalWrite(DIR, LOW); 
-      leerLimites();
-
-      if (!flag_limite_inferior) { 
-        if (!digitalRead(CRTouch_Detection)){
-          digitalWrite(DIR, LOW); 
-          pasos_restantes = 999999;
-          enable_step = true;
-        }       
-        
-        if (digitalRead(CRTouch_Detection)){
-          digitalWrite(bomba, HIGH);
-          
-          if (!flag_bolsa){
-            pasos_restantes = 200; 
-            enable_step = true;
-            flag_bolsa = true;
-          }else{
-            if (pasos_restantes <=0){
-              setState(SUBIENDO_CON_PAPA);
-              flag_comando_recibido = false;
-              lcd.clear();
-              lcd.print("SUBIENDO");
-              delay(100);    
-            }
-          }
-        }
-      } else {
-        enable_step = false;
-        setState(CENTRANDO); 
-      }
-      break;
-
-    case SUBIENDO_CON_PAPA:
-        digitalWrite(DIR, HIGH); 
-        if (!enable_step) {
-            pasos_restantes = 1500; 
-            enable_step = true;
-        }
-        
-        if (pasos_restantes <= 0) {
-            enable_step = false;
-            
-            // PREPARAR DATOS PARA SOLTAR
-            if (!flag_comando_recibido){
-              angulo_objetivo1 = angulo_caja1;
-              angulo_objetivo2 = angulo_caja2;
-              flag_comando_recibido = true;
-            }
-            
-            // RESET PID ANTES DE MOVER A CAJA
-            resetPID();
-            
-            setState(SOLTAR_PAPA); 
-            lcd.clear();
-            lcd.print("YENDO A CAJA");
-            delay(500);
-        }
-        break;
+  switch (state) {
+  case INICIO:
+    ST.motor(canalM1, 0); ST.motor(canalM2, 0);
+    enable_step = false;
+    flag_comando_recibido = false;
+    leerLimites();
     
-    case SOLTAR_PAPA:
-      // Usamos límites seguros para soltar
-      if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-        digitalWrite(bomba, LOW);
-        flag_bolsa = false;
-        setState(INICIO); 
-      }
-      break;
+    if (digitalRead(boton_mover)){
+        setState(CENTRANDO);
+        lcd.clear();
+        lcd.print("CENTRANDO");
+    }
+    break;
 
-    case STOP:
-        MG995_Servo.detach();
+  case CENTRANDO:
+    leerLimites();
+
+    switch (homing_sub_state) {
+      case HOME_START:
         ST.motor(canalM1, 0);
         ST.motor(canalM2, 0);
         enable_step = false;
-        digitalWrite(bomba, LOW);
-        lcd.clear();
-        lcd.print("STOP");
-        delay(1000);
+        homing_sub_state = HOME_Z_DOWN;
+        break;
 
-        if (!flag_detener){
-          setState(INICIO);
+      case HOME_Z_DOWN:
+        leerLimites();
+        if (!flag_limite_inferior) {
+          digitalWrite(DIR, LOW); 
+          pasos_restantes = 999999; 
+          enable_step = true;
+        } else {
+          enable_step = false;
+          homing_sub_state = HOME_SUBIR;
+          digitalWrite(DIR, HIGH); 
+          pasos_restantes = 1000;
+          enable_step = true;
         }
       break;
-  }
 
-  }
+      case HOME_SUBIR:
+        ST.motor(canalM1, 0);
+        ST.motor(canalM2, 0);
+        
+        if (pasos_restantes <= 0 && enable_step == false) {
+            digitalWrite(DIR, LOW);
+            homing_sub_state = HOME_M1_FIND;
+            flag_limite_inferior = false;
+        }
+      break;
 
+      case HOME_M1_FIND:
+      leerLimites();
+        if (!flag_centro) {
+          ST.motor(canalM1, 20); 
+          leerLimites();
+        } else {
+          ST.motor(canalM1, 0);
+          myEnc1.write(0); 
+          homing_sub_state = HOME_M2_FIND;
+        }
+        break;
+
+      case HOME_M2_FIND:
+        leerLimites();
+        if (digitalRead(limite_lateral1)){
+          leerLimites();
+          ST.motor(canalM2, 0);
+          myEnc2.write(0); 
+          // Configurar pose conocida
+          angulo_objetivo1 = 90.0;
+          angulo_objetivo2 = 155.0; // Tu valor actualizado       
+          // Reset PID antes de empezar a controlar
+          resetPID(); 
+          homing_sub_state = HOME_CENTRAR;
+          delay(100);
+        } else {
+          ST.motor(canalM2, -13); 
+          leerLimites();
+        }
+        break;
+
+      case HOME_CENTRAR:
+        if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
+            homing_sub_state = HOME_DONE;
+        }
+        break;
+
+      case HOME_DONE:
+        homing_sub_state = HOME_START;
+        lcd.clear();
+        lcd.print("IR POR ");
+        lcd.setCursor(0,1);
+        lcd.print("PAPA");
+        setState(ESPERANDO_PAPA);
+        break;
+    }
+    break;
+
+  case ESPERANDO_PAPA:
+    if (flag_comando_recibido){
+      angulo_objetivo1 = next_M1;
+      angulo_objetivo2 = next_M2;
+      angulo_objetivo_servo = next_S;
+      
+      flag_comando_recibido = false;
+      
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("M1:"); lcd.print(next_M1, 1);
+      lcd.setCursor(8,0);
+      lcd.print("M2:"); lcd.print(next_M2, 1);
+    } 
+    
+    if (digitalRead(boton_mover) == HIGH) {
+      lcd.clear();
+      lcd.print("MOVIENDOSE"); 
+      
+      // RESET DE PID AL INICIAR NUEVA RUTA
+      // resetPID(); 
+      setState(MOVIENDOSE);
+    }  
+    break;
+
+  case MOVIENDOSE:
+    leerLimites();
+
+    if (flag_detener || digitalRead(limite_lateral1)) {
+      setState(STOP); 
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("DETENER");  
+    }
+
+    if (!flag_servo_listo){
+        MG995_Servo.write(angulo_objetivo_servo);
+        flag_servo_listo = true;
+    } 
+
+    // Ajuste dinámico de límites segun si llevamos bolsa
+    int l1, l2;
+    if (flag_bolsa) {
+        l1 = (int)(limit_vel1 / 1.15); // Un poco mas lento
+        l2 = (int)(limit_vel2 / 2.0);  // Bastante mas lento en brazo
+    } else {
+        l1 = limit_vel1;
+        l2 = limit_vel2;
+    }
+
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1, l2)){
+      setState(ESPERAR);
+      lcd.clear();
+      lcd.print("EN POSICION");
+    }
+    break;
+
+  case ESPERAR:
+    if (digitalRead(boton_mover)){
+      setState(RECOGER_PAPA);
+      lcd.clear();
+      lcd.print("BAJANDO...");
+    }
+    break;
+
+  case RECOGER_PAPA:
+    digitalWrite(DIR, LOW); 
+    leerLimites();
+
+    if (!flag_limite_inferior) { 
+      if (!digitalRead(CRTouch_Detection)){
+        digitalWrite(DIR, LOW); 
+        pasos_restantes = 999999;
+        enable_step = true;
+      }       
+      
+      if (digitalRead(CRTouch_Detection)){
+        digitalWrite(bomba, HIGH);
+        
+        if (!flag_bolsa){
+          pasos_restantes = 200; 
+          enable_step = true;
+          flag_bolsa = true;
+        }else{
+          if (pasos_restantes <=0){
+            setState(SUBIENDO_CON_PAPA);
+            flag_comando_recibido = false;
+            lcd.clear();
+            lcd.print("SUBIENDO");
+            delay(100);    
+          }
+        }
+      }
+    } else {
+      enable_step = false;
+      setState(CENTRANDO); 
+    }
+    break;
+
+  case SUBIENDO_CON_PAPA:
+      digitalWrite(DIR, HIGH); 
+      if (!enable_step) {
+          pasos_restantes = 1500; 
+          enable_step = true;
+      }
+      
+      if (pasos_restantes <= 0) {
+          enable_step = false;
+          
+          // PREPARAR DATOS PARA SOLTAR
+          if (!flag_comando_recibido){
+            angulo_objetivo1 = angulo_caja1;
+            angulo_objetivo2 = angulo_caja2;
+            flag_comando_recibido = true;
+          }
+          
+          // RESET PID ANTES DE MOVER A CAJA
+          resetPID();
+          
+          setState(SOLTAR_PAPA); 
+          lcd.clear();
+          lcd.print("YENDO A CAJA");
+          delay(500);
+      }
+      break;
   
+  case SOLTAR_PAPA:
+    // Usamos límites seguros para soltar
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
+      digitalWrite(bomba, LOW);
+      flag_bolsa = false;
+      counter_papas++;
+      
+      if(counter_papas < max_papas){
+        setState(INICIO); 
+      } else{
+        setState(FIN_RUTINA);
+      }
+      
+    }
+    break;
+
+  case FIN_RUTINA:
+     
+  break;
+
+  case STOP:
+      MG995_Servo.detach();
+      ST.motor(canalM1, 0);
+      ST.motor(canalM2, 0);
+      enable_step = false;
+      digitalWrite(bomba, LOW);
+      lcd.clear();
+      lcd.print("STOP");
+      delay(1000);
+
+      if (!flag_detener){
+        setState(INICIO);
+      }
+    break;
+  } 
 }
 
 // =====================
