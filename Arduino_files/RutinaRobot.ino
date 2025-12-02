@@ -76,11 +76,18 @@ float kp2 = 2.5, ki2 = 0.0001, kd2 = 0.000;
 const unsigned long Period_PID = 10000UL;
 
 // Variables de Control
+
+float window_error1 = 6.0;
+int counter_window1 = 0;
+int window_length1 = 10;
+float ki_actual1 = 0.0;
+
 float angulo_actual1 = 0.0;
 float angulo_actual2 = 0.0;
 float angulo_objetivo1 = 0.0; 
 float angulo_objetivo2 = 0.0;
 float angulo_objetivo_servo = 0.0;
+float error_estacionario = 0.0;
 float angulo_max1 = 0.0;
 float angulo_max2 = 0.0;
 
@@ -164,7 +171,7 @@ void stepISR() {
 void leerLimites() {
   flag_limite_inferior = digitalRead(limite_inferior);
   flag_limite_lateral1 = digitalRead(limite_lateral1);
-  flag_limite_lateral2 = digitalRead(limite_lateral2);
+  // flag_limite_lateral2 = digitalRead(limite_lateral2);
   
   if (analogRead(pinSensorHall) <= 30) {
     flag_centro = true;
@@ -191,6 +198,7 @@ void setup() {
   // Pines Sensores
   pinMode(limite_inferior, INPUT); 
   pinMode(limite_lateral1, INPUT);
+  // pinMode(limite_lateral2, INPUT);
   
   // Pines Actuadores
   pinMode(DIR, OUTPUT);
@@ -284,7 +292,7 @@ void loop() {
       case HOME_M1_FIND:
       leerLimites();
         if (!flag_centro) {
-          ST.motor(canalM1, 20); 
+          ST.motor(canalM1, 18); 
           leerLimites();
         } else {
           ST.motor(canalM1, 0);
@@ -302,7 +310,6 @@ void loop() {
           // Configurar pose conocida
           angulo_objetivo1 = 90.0;
           angulo_objetivo2 = 155.0; // Tu valor actualizado       
-          // Reset PID antes de empezar a controlar
           resetPID(); 
           homing_sub_state = HOME_CENTRAR;
           delay(100);
@@ -313,13 +320,23 @@ void loop() {
         break;
 
       case HOME_CENTRAR:
+        if (flag_detener ){ //digitalRead(limite_lateral1)||  digitalRead(limite_lateral2)) 
+          setState(STOP); 
+          lcd.clear();
+          lcd.setCursor(0,0);
+          lcd.print("DETENER");  
+        }
+
         if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
+            resetPID(); 
             homing_sub_state = HOME_DONE;
         }
         break;
 
       case HOME_DONE:
         homing_sub_state = HOME_START;
+        // angulo_objetivo1 = 6.0;
+        // angulo_objetivo2 = 93.0;
         lcd.clear();
         lcd.print("IR POR ");
         lcd.setCursor(0,1);
@@ -334,7 +351,6 @@ void loop() {
       angulo_objetivo1 = next_M1;
       angulo_objetivo2 = next_M2;
       angulo_objetivo_servo = next_S;
-      
       flag_comando_recibido = false;
       
       lcd.clear();
@@ -357,7 +373,7 @@ void loop() {
   case MOVIENDOSE:
     leerLimites();
 
-    if (flag_detener || digitalRead(limite_lateral1)) {
+    if (flag_detener || digitalRead(limite_lateral1)) { // ||  digitalRead(limite_lateral2)
       setState(STOP); 
       lcd.clear();
       lcd.setCursor(0,0);
@@ -370,16 +386,8 @@ void loop() {
     } 
 
     // Ajuste dinámico de límites segun si llevamos bolsa
-    int l1, l2;
-    if (flag_bolsa) {
-        l1 = (int)(limit_vel1 / 1.15); // Un poco mas lento
-        l2 = (int)(limit_vel2 / 2.0);  // Bastante mas lento en brazo
-    } else {
-        l1 = limit_vel1;
-        l2 = limit_vel2;
-    }
 
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1, l2)){
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
       setState(ESPERAR);
       lcd.clear();
       lcd.print("EN POSICION");
@@ -415,7 +423,7 @@ void loop() {
         }else{
           if (pasos_restantes <=0){
             setState(SUBIENDO_CON_PAPA);
-            flag_comando_recibido = false;
+            // flag_comando_recibido = false;
             lcd.clear();
             lcd.print("SUBIENDO");
             delay(100);    
@@ -437,17 +445,12 @@ void loop() {
       
       if (pasos_restantes <= 0) {
           enable_step = false;
-          
-          // PREPARAR DATOS PARA SOLTAR
-          if (!flag_comando_recibido){
-            angulo_objetivo1 = angulo_caja1;
-            angulo_objetivo2 = angulo_caja2;
-            flag_comando_recibido = true;
-          }
+          angulo_objetivo1 = angulo_caja1;
+          angulo_objetivo2 = angulo_caja2;
+          // flag_comando_recibido = true;
           
           // RESET PID ANTES DE MOVER A CAJA
           resetPID();
-          
           setState(SOLTAR_PAPA); 
           lcd.clear();
           lcd.print("YENDO A CAJA");
@@ -456,8 +459,16 @@ void loop() {
       break;
   
   case SOLTAR_PAPA:
+    int l1, l2;
+      if (flag_bolsa) {
+          l1 = (int)(limit_vel1 / 1.15); // Un poco mas lento
+          l2 = (int)(limit_vel2 / 2.0);  // Bastante mas lento en brazo
+      } else {
+          l1 = limit_vel1;
+          l2 = limit_vel2;
+      }
     // Usamos límites seguros para soltar
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1, l2)){
       digitalWrite(bomba, LOW);
       flag_bolsa = false;
       counter_papas++;
@@ -553,8 +564,8 @@ void procesarMensaje(String msg) {
     // next_M2 = -tempM2;
     // next_S = tempS;
 
-    next_M1 = tempM2;
-    next_M2 = tempM1;
+    next_M1 = tempM1 + 45;
+    next_M2 = 155 - tempM2;
     next_S = tempS;
     
     flag_comando_recibido = true; 
@@ -598,10 +609,21 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   if (angulo_max2 < angulo_actual2){
     angulo_max2 = angulo_actual2;
   }
- 
 
   // --- PID M1 ---
   error_pid1 = angulo_objetivo1 - angulo_actual1;
+
+  ki_actual1 = i1;
+
+  if (abs(error_pid1) < window_error1 && abs(error_pid1) > 1.0) {
+    counter_window1++;
+    if (counter_window1 >= window_length1){
+      ki_actual1 = 200.0 * i1; // Boost de fuerza integral
+    }
+  } else {
+    counter_window1 = 0; // Resetear si salimos de la condición
+  }
+
   integral_pid1 += error_pid1 * dt;
   integral_pid1 = constrain(integral_pid1, -60, 60); 
   
@@ -610,7 +632,7 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   float derivative1 = alpha * last_derivative1 + (1.0 - alpha) * raw_derivative1;
   last_derivative1 = derivative1;
   
-  pid_output1 = (p1 * error_pid1) + (i1 * integral_pid1) + (d1 * derivative1);
+  pid_output1 = (p1 * error_pid1) + (ki_actual1 * integral_pid1) + (d1 * derivative1);
   error_anterior1 = error_pid1;
 
   // --- PID M2 ---
@@ -654,6 +676,7 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
+
 
   // Serial.println("Error pid 1");
   // Serial.println(error_pid1);
