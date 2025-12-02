@@ -23,13 +23,13 @@ class StaticCameraRobotNode(Node):
         self.get_logger().info('[Static Camera Robot Node] ha sido iniciado')
 
         # Crear cola y elementos de ella
-        self.img_q = Queue(maxsize=5) # cola fifo de tamano 5
+        self.img_q = Queue(maxsize=2) # cola fifo de tamano 5
         self.stop_event = Event()
         # Colas para hilos de procesamiento por color
-        self.red_q = Queue(maxsize=5)
+        self.red_q = Queue(maxsize=2)
         # self.blue_q = Queue(maxsize=5)
         # self.orange_q = Queue(maxsize=5) # descomentar en caso de usar el naranjo
-        self.green_q = Queue(maxsize=5)
+        self.green_q = Queue(maxsize=2)
         # Suscripcion
         self.subscription = self.create_subscription(Image, 'static_camera/image_raw', self.queue_robot_callback, 10)
         self.get_logger().info('[Static Camera Robot Node]: Suscriptor creado')

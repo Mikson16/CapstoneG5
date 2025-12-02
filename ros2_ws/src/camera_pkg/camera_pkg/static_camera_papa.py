@@ -24,7 +24,7 @@ class StaticCameraPapaNode(Node):
         self.get_logger().info('[Static Camera Papa Node]: ha sido iniciado')
 
         # Crear cola para pasar imagenes del callback al hilo de procesamiento
-        self.img_q = Queue(maxsize=5) # Cola Fifo de tamaño 5
+        self.img_q = Queue(maxsize=2) # Cola Fifo de tamaño 5
         self.stop_event = Event()
 
         # Crear suscriptor al mensaje de la camara estatica
@@ -87,7 +87,7 @@ class StaticCameraPapaNode(Node):
                 # upper_yellow = np.array([55, 235, 235]) #H, S, V
 
                 # Rangos para testear fuera del lab
-                lower_yellow = np.array([22, 150, 100])
+                lower_yellow = np.array([25, 100, 130])
                 upper_yellow = np.array([40, 255, 255])
 
                 #Rojo
@@ -115,8 +115,8 @@ class StaticCameraPapaNode(Node):
                 # self.get_logger().info(f"El centro horizontal del objeto se encuentra en: {center}")
 
                 # Mostrar imagen para testeo
-                # cv.imshow('Static Camera Papa Detection', self.result)
-                # cv.waitKey(1)
+                cv.imshow('Static Camera Papa Detection', self.result)
+                cv.waitKey(1)
 
             except Empty:
                 frame = None
@@ -180,8 +180,8 @@ class StaticCameraPapaNode(Node):
             except Exception as e:
                 # self.get_logger().warning(f"[Static camera papa publisher] No se ha detectado un objeto, no se publican coordenadas")
                 pass
-            cv.imshow('Find center Contorno Papa', self.result)
-            cv.waitKey(1)
+            # cv.imshow('Find center Contorno Papa', self.result)
+            # cv.waitKey(1)
         except Exception as e:
             self.get_logger().error(f"[Find center error papa]: {e}")
             return False

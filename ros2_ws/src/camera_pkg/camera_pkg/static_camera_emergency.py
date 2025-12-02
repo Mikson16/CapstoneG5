@@ -123,6 +123,7 @@ class StaticCameraEmergencyNode(Node):
                                cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
                 cv.imshow('find emergency', mask)
                 cv.waitKey(1)
+                
             except Empty:
                 continue
             except Exception as e:

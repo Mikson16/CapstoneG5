@@ -32,7 +32,7 @@ class StaticCameraNode(Node):
 
         sleep(2)  # Esperar a que la camara se inicialice
         self.get_logger().info('[Static Camera Node]: ha sido iniciado')
-        self.timer = self.create_timer(0.1, self.show_capture_callback)  # Publicar cada 0.1 segundos
+        self.timer = self.create_timer(0.2, self.show_capture_callback)  # Publicar cada 0.2 segundos, 5Hz
 
     def show_capture_callback(self):
         ret, frame = self.capture.read()
@@ -44,8 +44,8 @@ class StaticCameraNode(Node):
             # center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
             # cv2.circle(frame, center, 10, (0, 255, 0), -1)
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
-            cv2.imshow('Static Camera Node', frame)
-            cv2.waitKey(1)
+            # cv2.imshow('Static Camera Node', frame)
+            # cv2.waitKey(1)
             self.publisher.publish(msg)
         else:
             self.get_logger().error('No se pudo capturar la imagen de la camara')

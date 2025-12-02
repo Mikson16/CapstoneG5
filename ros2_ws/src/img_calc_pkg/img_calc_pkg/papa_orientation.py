@@ -28,8 +28,8 @@ class PapaOrientationNode(Node):
         self.get_logger().info('[Papa Orientation Node]: ha sido iniciado')
 
         # Armar colas
-        self.papa_bbox_q = Queue(maxsize=5)
-        self.color_bbox_q = Queue(maxsize=5)
+        self.papa_bbox_q = Queue(maxsize=2)
+        self.color_bbox_q = Queue(maxsize=2)
         self.stop_event = Event()
 
         self.publisher = self.create_publisher(Int16MultiArray, 'orientation/papa_orientation', 10)
