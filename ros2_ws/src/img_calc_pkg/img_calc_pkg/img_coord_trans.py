@@ -90,18 +90,18 @@ class BagCoordTransNode(Node):
 
             # 4. Traslación al Origen del Robot
             # Sumamos el offset para llevar el (0,0) de la imagen al (302, 286) del robot
-            robot_x = int(self.ROBOT_OFFSET_X + val_x + self.desp_x)
-            robot_y = int(self.ROBOT_OFFSET_Y + val_y + self.desp_y)
+            robot_x = int(self.ROBOT_OFFSET_X + val_x - self.desp_x)
+            robot_y = int(self.ROBOT_OFFSET_Y + val_y - self.desp_y)
 
             # 5. Publicar y Debug
-            self.get_logger().info(f'In(Px):{raw_u:.0f},{raw_v:.0f} -> Out(mm): X={robot_x}, Y={robot_y}')
+            # self.get_logger().info(f'In(Px):{raw_u:.0f},{raw_v:.0f} -> Out(mm): X={robot_x}, Y={robot_y}')
             
             out_msg = Int16MultiArray()
             out_msg.data = [robot_x, robot_y]
             self.publisher.publish(out_msg)
 
             # Visualización (Opcional, abre ventana en el PC del robot)
-            self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
+            # self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
 
         except Exception as e:
             self.get_logger().error(f'Error procesando coordenadas: {e}')

@@ -121,8 +121,8 @@ class StaticCameraEmergencyNode(Node):
                     cv.circle(mask, (it['cx'], it['cy']), 6, (0,0,255), -1)
                     cv.putText(mask, f'EMG {int(it["area"])}', (it['cx']+5, it['cy']+15),
                                cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
-                # cv.imshow('find emergency', mask)
-                # cv.waitKey(1)
+                cv.imshow('find emergency', mask)
+                cv.waitKey(1)
                 
             except Empty:
                 continue

@@ -29,11 +29,11 @@ def generate_launch_description():
             output='screen',
             emulate_tty= True,
         ),
-        Node(
-            package='camera_pkg',
-            executable='static_camera_emergency',
-            name='static_camera_emergency_node',
-            output='screen',
-            emulate_tty=True,
-        ),
     ])
+        # Node(
+        #     package='camera_pkg',
+        #     executable='static_camera_emergency',
+        #     name='static_camera_emergency_node',
+        #     output='screen',
+        #     emulate_tty=True,
+        # ),

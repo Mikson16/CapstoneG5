@@ -163,7 +163,7 @@ class InvKinematicsNode(Node):
                 y_cam_trans = coords_camara[1]
                 
                 # Debug: Ver si la coordenada tiene sentido
-                self.get_logger().info(f"Cam: ({x_cam_trans}, {y_cam_trans})")
+                # self.get_logger().info(f"Cam: ({x_cam_trans}, {y_cam_trans})")
 
                 # ---------------------------------------------------------
                 # 3. CÁLCULO DE CINEMÁTICA INVERSA 
@@ -230,12 +230,12 @@ class InvKinematicsNode(Node):
                 msg.data = data
                 self.publisher.publish(msg)
                 # 4. DIBUJAR BRAZO
-                try:
-                    self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
-                except Exception as e:
-                    self.get_logger().warning(f"Error dibujo: {e}")
+                # try:
+                #     self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
+                # except Exception as e:
+                #     self.get_logger().warning(f"Error dibujo: {e}")
 
-                self.get_logger().info(f'Enviando Grados desde la cinematica inversa: {data}')
+                # self.get_logger().info(f'Enviando Grados desde la cinematica inversa: {data}')
 
             except Empty:
                 continue
