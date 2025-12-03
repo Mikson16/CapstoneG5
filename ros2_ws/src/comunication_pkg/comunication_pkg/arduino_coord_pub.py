@@ -52,10 +52,10 @@ class ArduinoCoordPubNode(Node):
     
     def emergency_callback(self, msg):
         try:
-            self.get_logger().info(f'El largo del mensaje es {len(msg.data)} y el mensaje {msg}')
+            # self.get_logger().info(f'El largo del mensaje es {len(msg.data)} y el mensaje {msg}')
             if msg.data is not None:
                 data = list(msg.data)
-                self.get_logger().info(f' esta llegando este mensaje {data}, msg {msg}')
+                # self.get_logger().info(f' esta llegando este mensaje {data}, msg {msg}')
                 if data[0] == 1:
                 # estamos en una emergencia, de momento si se para, se para el sistema completo y hay que reiniciar el sistema completo
                     emergency_msg = String()
@@ -72,7 +72,7 @@ class ArduinoCoordPubNode(Node):
     def kinematics_callback(self, msg):
         try:
             data = list(msg.data)
-            self.get_logger().info(f' El mensaje que llego a la cinematica es: {data}')
+            # self.get_logger().info(f' El mensaje que llego a la cinematica es: {data}')
         #     self.kinematics_q.put_nowait()
         # except Full:
         #     self.get_logger().warning(f'La cola de las coordenadas de cinematica esta llena')
@@ -86,7 +86,7 @@ class ArduinoCoordPubNode(Node):
     def orientation_callback(self, msg):
         try:
             data = list(msg.data)
-            self.get_logger().info(f' El mensaje que llego a la orientacion es: {data}')
+            # self.get_logger().info(f' El mensaje que llego a la orientacion es: {data}')
         #     self.orientation_q.put_nowait()
         # except Full:
         #     self.get_logger().warning(f'La cola de orientacion esta llena')
@@ -138,7 +138,7 @@ class ArduinoCoordPubNode(Node):
                     coord_msg = String()
                     coord_msg.data = f'Mover;M1:{abs(theta_1)};M2:{abs(theta_2)};S:{abs(gamma)};{s_theta_1}{s_theta_2}{s_gamma}'
                     self.pub.publish(coord_msg)
-                    self.get_logger().info(f'Enviando comando al comunicador serial')
+                    # self.get_logger().info(f'Enviando comando al comunicador serial')
             except Exception as e:
                 self.get_logger().warning(f'Error al enviar mensaje de cinematica: {e}')
                 continue

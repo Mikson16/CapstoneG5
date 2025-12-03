@@ -66,7 +66,7 @@ class ArduinoComNode(Node):
         if self.msg is None:
             return
         try:
-            self.get_logger().info('Mandar mensaje serial')
+            # self.get_logger().info('Mandar mensaje serial')
             data = str(self.msg) + '\n'
             self.ser.write(data.encode('utf-8'))
             self.get_logger().info(f'SE ESTA ENVIANDO EL MENSAJE {data}')

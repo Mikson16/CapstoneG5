@@ -11,7 +11,45 @@ from std_msgs.msg import Int16MultiArray
 import cv2
 import numpy as np
 import traceback
+from threading import Thread, Event
+from queue import Queue, Empty
+import math
 
+class CorrectorCorr:
+    def __init__(self):
+        self.puntos_calibracion=[
+            [12, 422, 20, 10], [39, 406, 0, 10], [397, 306, 60, 0], [428, 241, 50, 20], [221, 418, -60, 65], [61, 354, -50, 5], [407, 220, 40, -30], [345, 355, 0, 90], [95, 273, -60, 20], [280, 140, 0, -90], [-150, 266, -20, 0], [22, 488, 20, 10], [480, 158, 50, -100]
+        ]
+        self.radio_influencia = 200.0 #mm
+
+    def corregir_corrd(self, x_in, y_in):
+        peso_total = 0.0
+        peso_x = 0.0
+        peso_y = 0.0
+
+        for point in self.puntos_calibracion:
+            ancho_x, ancho_y, err_x, err_y = point
+
+            dist = np.sqrt((x_in - ancho_x)**2 + (y_in - ancho_y)**2)
+
+            # evitar el 0
+            if dist < 0.1:
+                dist = 0.1
+
+            peso_gauss = np.exp(-(dist**2) / (2 * self.radio_influencia**2))
+
+            peso_x += err_x * peso_gauss
+            peso_y += err_y * peso_gauss
+            peso_total += peso_gauss
+
+            if peso_total == 0 :
+                return x_in, y_in
+
+            # aplicar correccion
+            x = x_in + (peso_x / peso_total)
+            y = y_in + (peso_y / peso_total)
+
+            return x, y
 class BagCoordTransNode(Node):
     def __init__(self):
         super().__init__('bag_coord_trans_node')
@@ -118,10 +156,11 @@ class BagCoordTransNode(Node):
             
             out_msg = Int16MultiArray()
             out_msg.data = [robot_x, robot_y]
+            self.get_logger().info(f'\n Las coordenadas cartesianas a enviar son x {robot_x}, y {robot_y}')
             self.publisher.publish(out_msg)
 
             # Visualización (Opcional, abre ventana en el PC del robot)
-            self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
+            # self.show_debug_window(robot_x, robot_y, raw_u, raw_v)
 
         except Exception as e:
             self.get_logger().error(f'Error procesando coordenadas: {e}')

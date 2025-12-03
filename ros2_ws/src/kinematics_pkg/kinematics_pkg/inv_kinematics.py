@@ -230,10 +230,10 @@ class InvKinematicsNode(Node):
                 msg.data = data
                 self.publisher.publish(msg)
                 # 4. DIBUJAR BRAZO
-                try:
-                    self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
-                except Exception as e:
-                    self.get_logger().warning(f"Error dibujo: {e}")
+                # try:
+                #     self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
+                # except Exception as e:
+                #     self.get_logger().warning(f"Error dibujo: {e}")
 
                 # self.get_logger().info(f'Enviando Grados desde la cinematica inversa: {data}')
 
