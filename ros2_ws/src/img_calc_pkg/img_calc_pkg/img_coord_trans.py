@@ -18,9 +18,9 @@ import math
 class CorrectorCorr:
     def __init__(self):
         self.puntos_calibracion=[
-            [12, 422, 20, 10], [39, 406, 0, 10], [397, 306, 60, 0], [428, 241, 50, 20], [221, 418, -60, 65], [61, 354, -50, 5], [407, 220, 40, -30], [345, 355, 0, 90], [95, 273, -60, 20], [280, 140, 0, -90], [-150, 266, -20, 0], [22, 488, 20, 10], [480, 158, 50, -100]
+            [12, 422, 20, 10], [39, 406, 0, 10], [397, 306, 60, 0], [428, 241, 50, 20], [221, 418, -60, 65], [61, 354, -50, 5], [407, 220, 40, -30], [345, 355, 0, 90], [95, 273, -60, 20], [280, 140, 0, -90], [-150, 266, -20, 0], [22, 488, 20, 10], [480, 158, 50, -100], [345, 329, 20, 60]
         ]
-        self.radio_influencia = 200.0 #mm
+        self.radio_influencia = 400.0 #mm
 
     def corregir_corrd(self, x_in, y_in):
         peso_total = 0.0
@@ -54,7 +54,8 @@ class BagCoordTransNode(Node):
     def __init__(self):
         super().__init__('bag_coord_trans_node')
         self.get_logger().info('[Transform Node]: Iniciado. Esperando coordenadas...')
-
+        
+        self.corrector = CorrectorCorr()
         # --- 1. CALIBRACIÓN FÍSICA ---
         self.ALTURA_CAMARA_MM = 1140.0
         self.ALTURA_PAPA_MM = -100.0
@@ -107,6 +108,9 @@ class BagCoordTransNode(Node):
 
             if raw_u == 0 and raw_v == 0:
                 return 
+
+            # Comentar esta linea para no usar el corrector gaussiano
+            u_corr, y_corr = self.corrector.corregir_corrd(raw_u, raw_v) 
 
             # 2. Centrar coordenadas (Origen en el centro de la imagen)
             # u_centrado positivo = derecha del centro
