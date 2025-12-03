@@ -26,6 +26,13 @@ Coordenada coordenadas_caja[NUM_PASOS] = {
   {1,  249}   // Paso 5
 };
 
+// ==========================================
+// NUEVAS VARIABLES PARA LOGICA DE SERVO SCARA
+// ==========================================
+float offset_agarre = 0.0; // Diferencia entre brazo y papa al recoger
+const float ANGULO_CAJA_ABSOLUTO = 0.0; // Queremos que la papa quede a 0 grados absolutos en la caja
+// ==========================================
+
 // ===== CONFIGURACIÓN ROBOT =====
 // Variables para el filtro de la derivada 
 float last_derivative1 = 0.0;
@@ -52,8 +59,10 @@ enum State {
   SOLTAR_PAPA_1, // Etapa 1: Mover M1
   SOLTAR_PAPA_2, // Etapa 2: Mover M2
   BAJAR_PAPA,
-  SOLTAR_PAPA,   // Acción de soltar (Servo)
+  SOLTAR_PAPA,   // Acción de soltar (Servo + Subida Z)
   FIN_RUTINA,
+  REINICIAR_Z,
+  REINICIAR_PLANO,     // Nuevo estado intermedio
   STOP
 };
 
@@ -91,11 +100,11 @@ const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
 // VARIABLES CON PAPA
-float kp1_papa = 3.2, ki1_papa = 0.00001, kd1_papa = 0.00003;
+float kp1_papa = 3.0, ki1_papa = 0.00001, kd1_papa = 0.000032;
 float kp2_papa = 3.5, ki2_papa = 0.00001, kd2_papa = 0.000001;
 
 // VARIABLES SIN PAPA
-float kp1 = 3.0, ki1 = 0.000005, kd1 = 0.001;
+float kp1 = 3.1, ki1 = 0.00001, kd1 = 0.0001;
 float kp2 = 2.7, ki2 = 0.000001, kd2 = 0.000;
 
 const unsigned long Period_PID = 10000UL; // 10ms
@@ -119,7 +128,7 @@ float angulo_actual1 = 0.0;
 float angulo_actual2 = 0.0;
 float angulo_objetivo1 = 0.0; 
 float angulo_objetivo2 = 0.0;
-float angulo_objetivo_servo = 0.0;
+float angulo_objetivo_servo = 0.0; // Viene del Serial (Angulo de la papa detectada)
 float angulo_max1 = 0.0;
 float angulo_max2 = 0.0;
 
@@ -176,6 +185,8 @@ void leerLimites();
 bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2, int amp1, int amp2);
 void leerSerialNoBloqueante();
 void resetPID();
+void aplicarCorreccionServo(); // <--- NUEVA FUNCIÓN
+
 
 // =====================
 // INTERRUPCIONES
@@ -198,7 +209,7 @@ void stepISR() {
 // =====================
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(38400); // Sabertooth
+  Serial2.begin(38400); 
   ST.autobaud();
   delay(500);
 
@@ -231,12 +242,12 @@ void setup() {
   
   delay(100);
   cr_touch.attach(CRTouch_Control);
-  cr_touch.write(90); // Sonda arriba
+  cr_touch.write(90); 
   delay(50);
   cr_touch.write(160);  
   delay(500);
 
-  cr_touch.write(10); // Desplegar
+  cr_touch.write(10); 
   delay(500);   
   pinMode(CRTouch_Detection, INPUT_PULLUP);
 
@@ -258,13 +269,10 @@ void loop() {
 
   switch (state) {
   case INICIO:
-    flag_servo_listo = false;
-    flag_centro = false;
-    flag_cambio = true;
-    flag_bolsa = false;
     ST.motor(canalM1, 0); ST.motor(canalM2, 0);
-    // enable_step = false;
+    flag_servo_listo = false;
     flag_comando_recibido = false;
+    flag_bolsa = false;
     leerLimites();
 
     if (digitalRead(boton_mover)){
@@ -319,7 +327,6 @@ void loop() {
         } else {
           ST.motor(canalM1, 0);
           myEnc1.write(0); 
-
           homing_sub_state = HOME_M2_FIND;
         }
         break;
@@ -434,6 +441,14 @@ void loop() {
           pasos_restantes = 200; 
           enable_step = true;
           flag_bolsa = true;
+          float angulo_brazo_pick = angulo_actual1 + angulo_actual2;
+          // 2. Calcular Offset: Diferencia entre angulo de la papa (detected) y el brazo
+          // Asumimos que angulo_objetivo_servo contiene la orientación de la papa detectada
+          offset_agarre = angulo_objetivo_servo - angulo_brazo_pick;
+          
+          // Debug en LCD o Serial si deseas
+          Serial.print("OFFSET AGARRE CAPTURADO: ");
+          Serial.println(offset_agarre);
         }else{
           if (pasos_restantes <=0){
             setState(SUBIENDO_CON_PAPA);
@@ -446,7 +461,7 @@ void loop() {
     } else {
       pasos_restantes = 500;
       digitalWrite(DIR, HIGH); 
-      // enable_step = false;
+      enable_step = true; 
       setState(INICIO); 
     }
     break;
@@ -463,7 +478,6 @@ void loop() {
           digitalWrite(DIR, LOW); 
           safe_index = counter_papas % NUM_PASOS;          
           angulo_objetivo1 = coordenadas_caja[safe_index].m1;
-          // SOLO Movemos M1 en la etapa 1
           
           resetPID();
           setState(SOLTAR_PAPA_1); 
@@ -476,7 +490,7 @@ void loop() {
       break;
 
   case SOLTAR_PAPA_1:
-    leerLimites(); // SEGURIDAD AGREGADA
+    leerLimites(); 
     if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
       setState(STOP); 
     }
@@ -493,7 +507,7 @@ void loop() {
 
     if (controlPID(kp1_papa, ki1_papa, kd1_papa, kp2_papa, ki2_papa, kd2_papa, l1_soltar, l2_soltar, amplificador1, amplificador2)){
       resetPID();
-      angulo_objetivo2 = coordenadas_caja[safe_index].m2; // Ahora preparamos M2
+      angulo_objetivo2 = coordenadas_caja[safe_index].m2; 
       setState(SOLTAR_PAPA_2); 
       lcd.clear();
       lcd.print("YENDO A ANGULO M2");
@@ -504,64 +518,76 @@ void loop() {
   break;
 
   case SOLTAR_PAPA_2:
-    leerLimites(); // SEGURIDAD AGREGADA
+    leerLimites(); 
     if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
       setState(STOP); 
     }
 
     if (controlPID(kp1_papa, ki1_papa, kd1_papa, kp2_papa, ki2_papa, kd2_papa, l1_soltar, l2_soltar, amplificador1, amplificador2)){
       resetPID();
+      MG995_Servo.attach(Servo_PWM);
+      aplicarCorreccionServo(); // <--- LLAMADA A LA FUNCIÓN MÁGICA
+      delay(200);
       setState(BAJAR_PAPA); 
       pasos_restantes = 1500; 
       enable_step = true;
       lcd.clear();
       lcd.print("SOLTANDO...");
       delay(500);
-      MG995_Servo.attach(Servo_PWM);
-      MG995_Servo.write(angulo_objetivo_servo);
+      // MG995_Servo.attach(Servo_PWM);
+      // MG995_Servo.write(angulo_objetivo_servo);
       delay(50);
     }
   break;
   
   case BAJAR_PAPA:
     leerLimites();
-
     if (!flag_limite_inferior && enable_step) {     
       digitalWrite(DIR, LOW); 
-      // enable_step = true;
-    }else {
+    } else {
       enable_step = false;
+      MG995_Servo.detach(); // Detach antes de iniciar subida de seguridad
       setState(SOLTAR_PAPA); 
     }
-
   break;
+
   case SOLTAR_PAPA:
-    counter_papas++;
-    flag_bolsa = false;
+    // 1. Soltar carga
     digitalWrite(bomba, LOW);
-    // Acciones físicas de soltar
-    cr_touch.write(90); // Sonda arriba
-    delay(50);
-    cr_touch.write(160);  
-    delay(500);
-    cr_touch.write(10); // Desplegar
-    delay(500);
     
+    // 2. Subida de seguridad MIENTRAS reseteamos sensor
+    // Esto asegura que el CR-Touch no choque al desplegarse
+    if (!enable_step){
+      digitalWrite(DIR, HIGH); // SUBIR
+      pasos_restantes = 2000;  // Subir lo suficiente (Aumentado a 2000 para cubrir el tiempo de delay)
+      enable_step = true;      // Arrancar motor Z
+      
+      // Mientras sube, reiniciamos sensor
+      cr_touch.write(90); delay(50);
+      cr_touch.write(160); delay(500);
+      cr_touch.write(10); delay(500);
+    }
     
-    if(counter_papas < max_papas){
-      // EFICIENCIA: Volver a esperar orden en lugar de recalibrar
-      setState(INICIO); 
-      lcd.clear();
-      lcd.print("LISTO SIGUIENTE");
-    } else{
-      setState(FIN_RUTINA);
+    // Esperar a que termine de subir
+    if (pasos_restantes <= 0){
+      enable_step = false; 
+      counter_papas++;
+      flag_bolsa = false;
+      
+      if(counter_papas < max_papas){
+        // VOLVEMOS AL INICIO para esperar botón y recalibrar
+        setState(INICIO); 
+        lcd.clear();
+        lcd.print("LISTO SIGUIENTE");
+      } else{
+        setState(FIN_RUTINA);
+        lcd.clear();
+        lcd.print("FIN RUTINA");
+      }
     }
     break;
 
   case FIN_RUTINA:
-     lcd.clear();
-     lcd.print("FIN RUTINA");
-     // Detener todo
      ST.motor(canalM1, 0); ST.motor(canalM2, 0);
   break;
 
@@ -773,6 +799,38 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   }
   
   return false; 
+}
+
+// ==========================================
+void aplicarCorreccionServo() {
+  // 1. Obtener ángulo actual del brazo (desde los encoders a través del PID)
+  // Nota: angulo_actual1 y angulo_actual2 se actualizan dentro de controlPID()
+  float anguloBrazoTotal = angulo_actual1 + angulo_actual2;
+  
+  // 2. Fórmula Maestra: 
+  // Target_Servo = Angulo_Deseado(0) - Brazo_Actual - Offset_Inicial
+  float anguloServoTeorico = ANGULO_CAJA_ABSOLUTO - anguloBrazoTotal - offset_agarre;
+  
+  // 3. Normalizar usando la simetría del rectángulo (180 grados)
+  // Queremos que el resultado esté siempre entre 0 y 180 para el servo MG995
+  
+  while (anguloServoTeorico < 0.0) {
+    anguloServoTeorico += 180.0;
+  }
+  while (anguloServoTeorico > 180.0) {
+    anguloServoTeorico -= 180.0;
+  }
+  
+  // 4. Seguridad Hardware
+  int anguloFinal = (int)anguloServoTeorico;
+  anguloFinal = constrain(anguloFinal, 0, 180);
+  
+  // Serial.print("--- CORRECCION SERVO ---");
+  // Serial.print("Brazo Tot: "); Serial.print(anguloBrazoTotal);
+  // Serial.print(" | Offset: "); Serial.print(offset_agarre);
+  // Serial.print(" | Servo Calc: "); Serial.println(anguloFinal);
+  
+  MG995_Servo.write(anguloFinal);
 }
 
 void setState(State s) {
