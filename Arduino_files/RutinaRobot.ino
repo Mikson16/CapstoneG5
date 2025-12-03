@@ -91,7 +91,7 @@ const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
 // VARIABLES CON PAPA
-float kp1_papa = 3.5, ki1_papa = 0.00001, kd1_papa = 0.000015;
+float kp1_papa = 3.2, ki1_papa = 0.00001, kd1_papa = 0.00003;
 float kp2_papa = 3.5, ki2_papa = 0.00001, kd2_papa = 0.000001;
 
 // VARIABLES SIN PAPA
@@ -263,7 +263,7 @@ void loop() {
     flag_cambio = true;
     flag_bolsa = false;
     ST.motor(canalM1, 0); ST.motor(canalM2, 0);
-    enable_step = false;
+    // enable_step = false;
     flag_comando_recibido = false;
     leerLimites();
 
@@ -431,7 +431,7 @@ void loop() {
         digitalWrite(bomba, HIGH);
         
         if (!flag_bolsa){
-          pasos_restantes = 220; 
+          pasos_restantes = 200; 
           enable_step = true;
           flag_bolsa = true;
         }else{
@@ -444,7 +444,9 @@ void loop() {
         }
       }
     } else {
-      enable_step = false;
+      pasos_restantes = 500;
+      digitalWrite(DIR, HIGH); 
+      // enable_step = false;
       setState(INICIO); 
     }
     break;
@@ -497,7 +499,7 @@ void loop() {
       lcd.print("YENDO A ANGULO M2");
       lcd.setCursor(0, 1);
       lcd.print("POS: "); lcd.print(safe_index);
-      delay(50);
+      delay(100);
     }
   break;
 
@@ -536,14 +538,15 @@ void loop() {
   case SOLTAR_PAPA:
     counter_papas++;
     flag_bolsa = false;
-
+    digitalWrite(bomba, LOW);
     // Acciones físicas de soltar
     cr_touch.write(90); // Sonda arriba
     delay(50);
     cr_touch.write(160);  
     delay(500);
     cr_touch.write(10); // Desplegar
-    digitalWrite(bomba, LOW);
+    delay(500);
+    
     
     if(counter_papas < max_papas){
       // EFICIENCIA: Volver a esperar orden en lugar de recalibrar
