@@ -1,26 +1,23 @@
 ///// LIBRERIAS //////////////////
-// Variables para el filtro de la derivada (AGREGAR AL INICIO CON LAS GLOBALES)
-float last_derivative1 = 0.0;
-float last_derivative2 = 0.0;
-const float alpha = 0.7; // Factor de suavizado (0.0 a 1.0)
-
-#include <LiquidCrystal_I2C.h> // Asegúrate de incluir esta si usas LCD
+#include <LiquidCrystal_I2C.h> 
 #include <TimerOne.h>
 #include <Servo.h>
 #include <Sabertooth.h>
 #include <Encoder.h>
 
-// COORDENADAS CAJA
+// =====================
+// DEFINICIONES DE COORDENADAS
+// =====================
 struct Coordenada {
   int m1;
   int m2;
 };
 
-// 2. Creamos la lista de coordenadas (Array de structs)
 const int NUM_PASOS = 6;
 
+// Lista de coordenadas para soltar en la caja
 Coordenada coordenadas_caja[NUM_PASOS] = {
-  {10, 192},  // Paso 0
+  {13, 187},  // Paso 0
   {31, 228},  // Paso 1
   {28, 257},  // Paso 2
   {13, 224},  // Paso 3
@@ -29,9 +26,20 @@ Coordenada coordenadas_caja[NUM_PASOS] = {
 };
 
 // ===== CONFIGURACIÓN ROBOT =====
+// Variables para el filtro de la derivada 
+float last_derivative1 = 0.0;
+float last_derivative2 = 0.0;
+const float alpha = 0.7; // Factor de suavizado (0.0 a 1.0)
+
+const float k_coreccion = 1.00;
+const float COUNTS_PER_REV_ARM = 1920 * 3; 
+const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM * k_coreccion / 360.0;
+const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
+
 int canalM1 = 1;
 int canalM2 = 2;
 
+// ===== MÁQUINA DE ESTADOS =====
 enum State {
   INICIO,
   CENTRANDO,
@@ -69,7 +77,7 @@ const int boton_subir = 52;
 const int pinSensorHall = A0; 
 
 // CR-TOUCH
-const int CRTouch_Detection = 4; // Verificado segun tu codigo
+const int CRTouch_Detection = 4; 
 const int CRTouch_Control = 9;
 
 // Limites
@@ -77,23 +85,25 @@ const int limite_inferior = 23;
 const int limite_lateral1 = 53;
 const int limite_lateral2 = 51;
 
-//CONSTANTES PID
-const float k_coreccion= 1.00;
-const float COUNTS_PER_REV_ARM = 1920*3; 
-const float COUNTS_PER_DEGREE1 = COUNTS_PER_REV_ARM*k_coreccion / 360.0;
-const float COUNTS_PER_DEGREE2 = COUNTS_PER_REV_ARM / 360.0;
-float kp1 = 3.0, ki1 = 0.0001, kd1 = 0.00;
-float kp2 = 2.5, ki2 = 0.0001, kd2 = 0.000;
-const unsigned long Period_PID = 10000UL;
+// ===== VARIABLES PID =====
+// VARIABLES CON PAPA
+float kp1_papa = 3.2, ki1_papa = 0.0005, kd1_papa = 0.00001;
+float kp2_papa = 2.7, ki2_papa = 0.0005, kd2_papa = 0.00001;
+
+// VARIABLES SIN PAPA
+float kp1 = 3.0, ki1 = 0.00001, kd1 = 0.0001;
+float kp2 = 2.7, ki2 = 0.0001, kd2 = 0.000;
+
+const unsigned long Period_PID = 10000UL; // 10ms
 unsigned long time_ant_pid = 0;
 
-
-// Variables de Control
+// Variables de Control KI Dinámico Motor 1
 float window_error1 = 6.0;
 int counter_window1 = 0;
 int window_length1 = 10;
 float ki_actual1 = 0.0;
 
+// Variables de Control KI Dinámico Motor 2
 float window_error2 = 6.0;
 int counter_window2 = 0;
 int window_length2 = 10;
@@ -104,35 +114,34 @@ float angulo_actual2 = 0.0;
 float angulo_objetivo1 = 0.0; 
 float angulo_objetivo2 = 0.0;
 float angulo_objetivo_servo = 0.0;
-float error_estacionario = 0.0;
 float angulo_max1 = 0.0;
 float angulo_max2 = 0.0;
+
 float error_pid1 = 0, integral_pid1 = 0, error_anterior1 = 0;
 float error_pid2 = 0, integral_pid2 = 0, error_anterior2 = 0;
 float pid_output1 = 0;
 float pid_output2 = 0;
-const int limit_vel1 = 22;
+
+const int limit_vel1 = 24;
 const int limit_vel2 = 35;
 
-// Comunicación
-String buffer = "";
-volatile bool flag_detener = false;
 // Buffer Serial
 float next_M1 = 0.0;
 float next_M2 = 0.0;
 float next_S = 0.0;
 bool flag_comando_recibido = false; 
+String buffer = "";
+volatile bool flag_detener = false;
 
 // ===== VARIABLES SISTEMA =====
 bool flag_limite_inferior = false;
-bool flag_limite_lateral1  = false;
-bool flag_limite_lateral2  = false;
+bool flag_limite_lateral1 = false;
+bool flag_limite_lateral2 = false;
 bool flag_servo_listo = false;
 bool flag_centro = false;
 bool flag_cambio = true;
 bool flag_bolsa = false;
 
-//
 int current_limit2 = 0;
 int counter_papas = 0;
 int max_papas = 20;
@@ -158,7 +167,7 @@ void setState(State s);
 void leerLimites();
 bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2);
 void leerSerialNoBloqueante();
-void resetPID(); // NUEVA FUNCION
+void resetPID();
 
 // =====================
 // INTERRUPCIONES
@@ -173,18 +182,6 @@ void stepISR() {
     pasos_restantes--;
   } else if (step_pin_state && pasos_restantes <= 0) {
      enable_step = false; 
-  }
-}
-
-void leerLimites() {
-  flag_limite_inferior = digitalRead(limite_inferior);
-  flag_limite_lateral1 = digitalRead(limite_lateral1);
-  // flag_limite_lateral2 = digitalRead(limite_lateral2);
-  
-  if (analogRead(pinSensorHall) <= 30) {
-    flag_centro = true;
-  } else {
-    flag_centro = false;
   }
 }
 
@@ -206,7 +203,7 @@ void setup() {
   // Pines Sensores
   pinMode(limite_inferior, INPUT); 
   pinMode(limite_lateral1, INPUT);
-  // pinMode(limite_lateral2, INPUT);
+  pinMode(limite_lateral2, INPUT); 
   
   // Pines Actuadores
   pinMode(DIR, OUTPUT);
@@ -215,11 +212,15 @@ void setup() {
   pinMode(bomba, OUTPUT);
   pinMode(boton_subir, INPUT);
   pinMode(boton_mover, INPUT);
+  
+  // Sensor Hall
+  pinMode(pinSensorHall, INPUT);
 
   // Servos
   MG995_Servo.attach(Servo_PWM);
   MG995_Servo.write(0);
   
+  delay(100);
   cr_touch.attach(CRTouch_Control);
   cr_touch.write(90); // Sonda arriba
   delay(50);
@@ -234,7 +235,7 @@ void setup() {
   myEnc1.write(0);
   myEnc2.write(0);
 
-  Timer1.initialize(500); // Velocidad Stepper
+  Timer1.initialize(500); 
   Timer1.attachInterrupt(stepISR);
 
   setState(INICIO);
@@ -246,13 +247,25 @@ void setup() {
 void loop() {
   leerSerialNoBloqueante();
 
+  // Serial.print("M1: "); Serial.print(myEnc1.read()/COUNTS_PER_DEGREE1-45);
+  // Serial.print(",  M2: "); Serial.println(155-myEnc2.read()/COUNTS_PER_DEGREE2);
+
   switch (state) {
   case INICIO:
+    flag_servo_listo = false;
+    flag_centro = false;
+    flag_cambio = true;
+    flag_bolsa = false;
     ST.motor(canalM1, 0); ST.motor(canalM2, 0);
     enable_step = false;
     flag_comando_recibido = false;
     leerLimites();
+
+    if (digitalRead(limite_lateral2)){
+      Serial.println("Limite 2 pulsado");
+    }
     
+
     if (digitalRead(boton_mover)){
         setState(CENTRANDO);
         lcd.clear();
@@ -316,8 +329,9 @@ void loop() {
           ST.motor(canalM2, 0);
           myEnc2.write(0); 
           // Configurar pose conocida
-          angulo_objetivo1 = 90.0;
-          angulo_objetivo2 = 155.0; // Tu valor actualizado       
+          angulo_objetivo1 = 60;//45.0;
+          angulo_objetivo2 = 50;//155.0;      
+          
           resetPID(); 
           homing_sub_state = HOME_CENTRAR;
           delay(100);
@@ -328,7 +342,7 @@ void loop() {
         break;
 
       case HOME_CENTRAR:
-        if (flag_detener ){ //digitalRead(limite_lateral1)||  digitalRead(limite_lateral2)) 
+        if (flag_detener || digitalRead(limite_lateral2) ){ 
           setState(STOP); 
           lcd.clear();
           lcd.setCursor(0,0);
@@ -364,22 +378,20 @@ void loop() {
       lcd.print("M1:"); lcd.print(next_M1, 1);
       lcd.setCursor(8,0);
       lcd.print("M2:"); lcd.print(next_M2, 1);
-    } 
-    
-    if (digitalRead(boton_mover) == HIGH) {
       lcd.clear();
       lcd.print("MOVIENDOSE"); 
-      
-      // RESET DE PID AL INICIAR NUEVA RUTA
-      // resetPID(); 
       setState(MOVIENDOSE);
-    }  
+    } 
+    
+    // if (digitalRead(boton_mover) == HIGH) {
+    
+    // }  
     break;
 
   case MOVIENDOSE:
     leerLimites();
 
-    if (flag_detener || digitalRead(limite_lateral1)) { // ||  digitalRead(limite_lateral2)
+    if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
       setState(STOP); 
       lcd.clear();
       lcd.setCursor(0,0);
@@ -387,14 +399,12 @@ void loop() {
     }
 
     if (!flag_servo_listo){
-        MG995_Servo.write(angulo_objetivo_servo);
+        MG995_Servo.write(45);
         flag_servo_listo = true;
     } 
 
-    // Ajuste dinámico de límites segun si llevamos bolsa
-
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-      setState(ESPERAR);
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel1)){
+      setState(RECOGER_PAPA);
       lcd.clear();
       lcd.print("EN POSICION");
     }
@@ -429,7 +439,6 @@ void loop() {
         }else{
           if (pasos_restantes <=0){
             setState(SUBIENDO_CON_PAPA);
-            // flag_comando_recibido = false;
             lcd.clear();
             lcd.print("SUBIENDO");
             delay(100);    
@@ -451,45 +460,54 @@ void loop() {
       
       if (pasos_restantes <= 0) {
           enable_step = false;
-          angulo_objetivo1 = coordenadas_caja[counter_papas].m1;
-          angulo_objetivo2 = coordenadas_caja[counter_papas].m2;
-          // flag_comando_recibido = true;
           
-          // RESET PID ANTES DE MOVER A CAJA
+          int safe_index = counter_papas % NUM_PASOS;           
+          angulo_objetivo1 = coordenadas_caja[safe_index].m1;
+          angulo_objetivo2 = coordenadas_caja[safe_index].m2;
+          
           resetPID();
           setState(SOLTAR_PAPA); 
           lcd.clear();
           lcd.print("YENDO A CAJA");
+          lcd.setCursor(0, 1);
+          lcd.print("POS: "); lcd.print(safe_index);
           delay(500);
       }
       break;
   
   case SOLTAR_PAPA:
-    int l1, l2;
-      if (flag_bolsa) {
-          l1 = (int)(limit_vel1 / 1.15); // Un poco mas lento
-          l2 = (int)(limit_vel2 / 2.0);  // Bastante mas lento en brazo
-      } else {
-          l1 = limit_vel1;
-          l2 = limit_vel2;
-      }
-    // Usamos límites seguros para soltar
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1, l2)){
+    int l1_soltar, l2_soltar;
+    if (flag_bolsa) {
+        l1_soltar = (int)(limit_vel1 / 1.5); 
+        l2_soltar = (int)(limit_vel2 / 2.0);  
+    } else {
+        l1_soltar = limit_vel1;
+        l2_soltar = limit_vel2;
+    }
+    
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1_soltar, l2_soltar)){
       digitalWrite(bomba, LOW);
       flag_bolsa = false;
       counter_papas++;
+      cr_touch.write(90); // Sonda arriba
+      delay(50);
+      cr_touch.write(160);  
+      delay(500);
+      cr_touch.write(10); // Desplegar
       
       if(counter_papas < max_papas){
         setState(INICIO); 
       } else{
         setState(FIN_RUTINA);
       }
-      
     }
     break;
 
   case FIN_RUTINA:
-     
+     lcd.clear();
+     lcd.print("FIN RUTINA");
+     // Detener todo
+     ST.motor(canalM1, 0); ST.motor(canalM2, 0);
   break;
 
   case STOP:
@@ -512,6 +530,18 @@ void loop() {
 // =====================
 // FUNCIONES AUXILIARES
 // =====================
+
+void leerLimites() {
+  flag_limite_inferior = digitalRead(limite_inferior);
+  flag_limite_lateral1 = digitalRead(limite_lateral1);
+  flag_limite_lateral2 = digitalRead(limite_lateral2);
+  
+  if (analogRead(pinSensorHall) <= 30) {
+    flag_centro = true;
+  } else {
+    flag_centro = false;
+  }
+}
 
 void leerSerialNoBloqueante() {
   while (Serial.available() > 0) {
@@ -566,11 +596,7 @@ void procesarMensaje(String msg) {
       }
     }
 
-    // next_M1 = -tempM1;
-    // next_M2 = -tempM2;
-    // next_S = tempS;
-
-    next_M1 = tempM1 + 45;
+    next_M1 = tempM1 + 45; 
     next_M2 = 155 - tempM2;
     next_S = tempS;
     
@@ -581,18 +607,27 @@ void procesarMensaje(String msg) {
   }
 }
 
-// === NUEVA FUNCIÓN PARA LIMPIAR ERRORES ===
+// === RESET PID COMPLETO ===
 void resetPID() {
   integral_pid1 = 0;
   integral_pid2 = 0;
   error_anterior1 = 0; 
   error_anterior2 = 0;
-  last_derivative1 = 0; // Reset filtro
-  last_derivative2 = 0; // Reset filtro
+  last_derivative1 = 0; 
+  last_derivative2 = 0; 
+  
+  // Reset Ki dinamico M1
+  counter_window1 = 0;
+  ki_actual1 = ki1;
+
+  // Reset Ki dinamico M2 (AGREGADO)
+  counter_window2 = 0;
+  ki_actual2 = ki2;
+  
   time_ant_pid = micros(); 
 }
 
-// PID OPTIMIZADO: Filtro derivativo y control suave
+// === PID OPTIMIZADO CON KI DINÁMICO DOBLE ===
 bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2) {
   
   if (micros() - time_ant_pid < Period_PID) return false; 
@@ -608,118 +643,84 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   angulo_actual1 = (float)pos0 / COUNTS_PER_DEGREE1;
   angulo_actual2 = (float)pos1 / COUNTS_PER_DEGREE2;
 
-  if (angulo_max1 < angulo_actual1){
-    angulo_max1 = angulo_actual1;
-  }
+  // Seguimiento de máximos
+  if (angulo_max1 < angulo_actual1) angulo_max1 = angulo_actual1;
+  if (angulo_max2 < angulo_actual2) angulo_max2 = angulo_actual2;
 
-  if (angulo_max2 < angulo_actual2){
-    angulo_max2 = angulo_actual2;
-  }
-
-  // --- PID M1 ---
+  // --- PID M1 (con Ki Dinámico) ---
   error_pid1 = angulo_objetivo1 - angulo_actual1;
-
   ki_actual1 = i1;
 
   if (abs(error_pid1) < window_error1 && abs(error_pid1) > 1.0) {
     counter_window1++;
     if (counter_window1 >= window_length1){
-      ki_actual1 = 250.0 * i1; // Boost de fuerza integral
+      ki_actual1 = 1500.0 * i1; 
     }
   } else {
-    counter_window1 = 0; // Resetear si salimos de la condición
+    counter_window1 = 0; 
   }
 
+  // --- PID M2 (con Ki Dinámico) ---
+  error_pid2 = angulo_objetivo2 - angulo_actual2;
   ki_actual2 = i2;
 
   if (abs(error_pid2) < window_error2 && abs(error_pid2) > 1.0) {
     counter_window2++;
     if (counter_window2 >= window_length2){
-      ki_actual2 = 250.0 * i2; // Boost de fuerza integral
+      ki_actual2 = 1500.0 * i2; 
     }
   } else {
-    counter_window2 = 0; // Resetear si salimos de la condición
+    counter_window2 = 0; 
   }
 
-
+  // Integrales
   integral_pid1 += error_pid1 * dt;
   integral_pid1 = constrain(integral_pid1, -60, 60); 
+
+  integral_pid2 += error_pid2 * dt;
+  integral_pid2 = constrain(integral_pid2, -50, 50); 
   
-  // Derivada Filtrada (Low Pass Filter) para reducir vibración
+  // Derivadas Filtradas
   float raw_derivative1 = (error_pid1 - error_anterior1) / dt;
   float derivative1 = alpha * last_derivative1 + (1.0 - alpha) * raw_derivative1;
   last_derivative1 = derivative1;
   
-  pid_output1 = (p1 * error_pid1) + (ki_actual1 * integral_pid1) + (d1 * derivative1);
-  error_anterior1 = error_pid1;
-
-  // --- PID M2 ---
-  error_pid2 = angulo_objetivo2 - angulo_actual2;
-  integral_pid2 += error_pid2 * dt;
-  integral_pid2 = constrain(integral_pid2, -50, 50); 
-  
-  // Derivada Filtrada M2
   float raw_derivative2 = (error_pid2 - error_anterior2) / dt;
   float derivative2 = alpha * last_derivative2 + (1.0 - alpha) * raw_derivative2;
   last_derivative2 = derivative2;
-
+  
+  // Calculo Salidas
+  pid_output1 = (p1 * error_pid1) + (ki_actual1 * integral_pid1) + (d1 * derivative1);
   pid_output2 = (p2 * error_pid2) + (ki_actual2 * integral_pid2) + (d2 * derivative2);
+  
+  error_anterior1 = error_pid1;
   error_anterior2 = error_pid2;
 
-  // --- LÓGICA DE SALIDAS ---
-  int out1, out2;
-
-  if (flag_bolsa) {
-    current_limit2 = (int)(limit_vel2 * 0.5);
-    out1 = constrain((int)pid_output1, -(int)(limit_vel1/1.15), (int)(limit_vel1/1.15));
-    // out2 = out2/1.5; // Esto estaba operando sobre basura antes de asignar
-    out2 = constrain((int)pid_output2, -current_limit2, current_limit2); 
-    
-  } else {
-    out1 = constrain((int)pid_output1, -limit_vel1, limit_vel1); 
-    out2 = constrain((int)pid_output2, -limit_vel2, limit_vel2);
-  }
+  // --- LÓGICA DE SALIDAS (LIMITADORES) ---
+  int out1 = constrain((int)pid_output1, -lim1, lim1); 
+  int out2 = constrain((int)pid_output2, -lim2, lim2);
   
-  // --- ZONA MUERTA INTELIGENTE (CORREGIDA) ---
-  // Si estamos MUY cerca, apagamos. Si estamos cerca pero no tanto,
-  // dejamos que el PID (especialmente la Integral) haga el trabajo suave
-  // en vez de forzar un valor de 20.
-  
-  if (abs(error_pid1) < 1.0) out1 = 0; // Apagado estricto si el error es casi nulo
-  // Eliminado el "else if (out1 < 16) out1 = 20" que causaba la vibración.
-  // Si el motor necesita fuerza mínima para moverse (stiction), 
-  // aumenta un poco Ki (integral) en lugar de forzarlo aquí.
-
-  if (abs(error_pid2) < 1.0) out2 = 0;
+  // Zona muerta
+  if (abs(error_pid1) < 1.5) out1 = 0; 
+  if (abs(error_pid2) < 1.5) out2 = 0;
 
   ST.motor(canalM1, -out1);
   ST.motor(canalM2, out2);
 
-
-  // Serial.println("Error pid 1");
-  // Serial.println(error_pid1);
-  // Serial.println("Error pid 2");
-  // Serial.println(error_pid2);
-
-
-  // Debug (comenta para producción)
-  // Serial.print("E1:"); Serial.print(error_pid1); Serial.print(" O1:"); Serial.println(-out1);
-
-  if (abs(error_pid1) < 1.0 && abs(error_pid2) < 1.0) { 
-      // Verificar también que la velocidad sea baja para asegurar estabilidad
+  // Verificación de llegada a posición estable
+  if (abs(error_pid1) < 1.5 && abs(error_pid2) < 1.5) { 
       if (abs(derivative1) < 5.0 && abs(derivative2) < 5.0) {
           ST.motor(canalM1, 0);
           ST.motor(canalM2, 0);
-          // Serial.println("ANg Max");
-          // Serial.println(angulo_max1);
-          resetPID();
-          return true;
+          // NO reseteamos PID aquí dentro para permitir ajustes finos si se sale un poco
+          return true; // LLegó
       }
   }
   
-  return false;
+  return false; 
 }
 
+// === IMPLEMENTACIÓN FALTANTE DE setState ===
 void setState(State s) {
   if (state != s) {
     lastState = state;
