@@ -91,7 +91,7 @@ const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
 // VARIABLES CON PAPA
-float kp1_papa = 3.5, ki1_papa = 0.00001, kd1_papa = 0.00001;
+float kp1_papa = 3.5, ki1_papa = 0.00001, kd1_papa = 0.000015;
 float kp2_papa = 3.5, ki2_papa = 0.00001, kd2_papa = 0.000001;
 
 // VARIABLES SIN PAPA
@@ -458,7 +458,7 @@ void loop() {
       
       if (pasos_restantes <= 0) {
           enable_step = false;
-          
+          digitalWrite(DIR, LOW); 
           safe_index = counter_papas % NUM_PASOS;          
           angulo_objetivo1 = coordenadas_caja[safe_index].m1;
           // SOLO Movemos M1 en la etapa 1
