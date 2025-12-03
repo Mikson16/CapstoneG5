@@ -18,9 +18,13 @@ import math
 class CorrectorCorr:
     def __init__(self):
         self.puntos_calibracion=[
-            [12, 422, 20, 10], [39, 406, 0, 10], [397, 306, 60, 0], [428, 241, 50, 20], [221, 418, -60, 65], [61, 354, -50, 5], [407, 220, 40, -30], [345, 355, 0, 90], [95, 273, -60, 20], [280, 140, 0, -90], [-150, 266, -20, 0], [22, 488, 20, 10], [480, 158, 50, -100], [345, 329, 20, 60]
+            [12, 422, 20, 10], [39, 406, 0, 10], [397, 306, 60, 0], [428, 241, 50, 20], [221, 418, -60, 65], [61, 354, -50, 5], [407, 220, 40, -30], [345, 355, 0, 90], [95, 273, -60, 20], [280, 140, 0, -90], [-150, 266, -20, 0], [22, 488, 20, 10], [480, 158, 50, -100], [345, 329, 20, 60], [194, 432, 0, 40], [80, 449, -34, 10], 
+            
+            [-106, 492, 40, -5], [190, 382, 0, 50], [245, 381, 20, 75], [376, 250, 80, -45],
+            [-230, 450, 118, -45], [179, 345, -40, 40], [300, 375, 28, 68], [105, 472, -25, 43], [25, 401, -42, 15], [-90, 358, 15, -15]
         ]
-        self.radio_influencia = 400.0 #mm
+        self.radio_influencia = 300.0 #mm
+        self.escalador = 1.0
 
     def corregir_corrd(self, x_in, y_in):
         peso_total = 0.0
@@ -46,8 +50,8 @@ class CorrectorCorr:
                 return x_in, y_in
 
             # aplicar correccion
-            x = x_in + (peso_x / peso_total)
-            y = y_in + (peso_y / peso_total)
+            x = x_in + (peso_x / peso_total) * self.escalador
+            y = y_in + (peso_y / peso_total) * self.escalador
 
             return x, y
 class BagCoordTransNode(Node):
@@ -115,8 +119,8 @@ class BagCoordTransNode(Node):
             # 2. Centrar coordenadas (Origen en el centro de la imagen)
             # u_centrado positivo = derecha del centro
             # v_centrado positivo = abajo del centro
-            u_centered = (raw_u - self.IMG_CENTER_X) 
-            v_centered = (raw_v - self.IMG_CENTER_Y)
+            u_centered = (u_corr - self.IMG_CENTER_X) 
+            v_centered = (y_corr - self.IMG_CENTER_Y)
 
             # Correccion de distorcion por radio
             r2 = u_centered **2 + v_centered **2
@@ -127,7 +131,7 @@ class BagCoordTransNode(Node):
             v_sin_dist = v_centered * radial_factor
 
             # Correccion de paralaje
-            factor_h = 1.2 #(self.ALTURA_CAMARA_MM - self.ALTURA_PAPA_MM) / self.ALTURA_CAMARA_MM
+            factor_h = 1.1 #(self.ALTURA_CAMARA_MM - self.ALTURA_PAPA_MM) / self.ALTURA_CAMARA_MM
 
             u_correct = u_sin_dist * factor_h
             v_correct = v_sin_dist * factor_h
