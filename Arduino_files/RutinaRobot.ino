@@ -14,6 +14,7 @@ struct Coordenada {
 };
 
 const int NUM_PASOS = 6;
+int safe_index = 0;
 
 // Lista de coordenadas para soltar en la caja
 Coordenada coordenadas_caja[NUM_PASOS] = {
@@ -48,7 +49,10 @@ enum State {
   ESPERAR,
   RECOGER_PAPA,
   SUBIENDO_CON_PAPA,
-  SOLTAR_PAPA,
+  SOLTAR_PAPA_1, // Etapa 1: Mover M1
+  SOLTAR_PAPA_2, // Etapa 2: Mover M2
+  BAJAR_PAPA,
+  SOLTAR_PAPA,   // Acción de soltar (Servo)
   FIN_RUTINA,
   STOP
 };
@@ -68,7 +72,7 @@ State state = INICIO;
 State lastState = INICIO;
 
 // ===== PINES =====
-const int Servo_PWM = 42;
+const int Servo_PWM = 40;
 const int DIR = 24;
 const int PUL = 28;
 const int bomba = 31;
@@ -87,12 +91,12 @@ const int limite_lateral2 = 51;
 
 // ===== VARIABLES PID =====
 // VARIABLES CON PAPA
-float kp1_papa = 3.2, ki1_papa = 0.0005, kd1_papa = 0.00001;
-float kp2_papa = 2.7, ki2_papa = 0.0005, kd2_papa = 0.00001;
+float kp1_papa = 3.5, ki1_papa = 0.00001, kd1_papa = 0.00001;
+float kp2_papa = 3.5, ki2_papa = 0.00001, kd2_papa = 0.000001;
 
 // VARIABLES SIN PAPA
-float kp1 = 3.0, ki1 = 0.00001, kd1 = 0.0001;
-float kp2 = 2.7, ki2 = 0.0001, kd2 = 0.000;
+float kp1 = 3.0, ki1 = 0.000005, kd1 = 0.001;
+float kp2 = 2.7, ki2 = 0.000001, kd2 = 0.000;
 
 const unsigned long Period_PID = 10000UL; // 10ms
 unsigned long time_ant_pid = 0;
@@ -100,14 +104,16 @@ unsigned long time_ant_pid = 0;
 // Variables de Control KI Dinámico Motor 1
 float window_error1 = 6.0;
 int counter_window1 = 0;
-int window_length1 = 10;
+int window_length1 = 20;
 float ki_actual1 = 0.0;
+int amplificador1 = 0.0;
 
 // Variables de Control KI Dinámico Motor 2
 float window_error2 = 6.0;
 int counter_window2 = 0;
 int window_length2 = 10;
 float ki_actual2 = 0.0;
+int amplificador2 = 0.0;
 
 float angulo_actual1 = 0.0;
 float angulo_actual2 = 0.0;
@@ -122,8 +128,10 @@ float error_pid2 = 0, integral_pid2 = 0, error_anterior2 = 0;
 float pid_output1 = 0;
 float pid_output2 = 0;
 
-const int limit_vel1 = 24;
+const int limit_vel1 = 20;
 const int limit_vel2 = 35;
+int l1_soltar = 0;
+int l2_soltar = 0;
 
 // Buffer Serial
 float next_M1 = 0.0;
@@ -165,7 +173,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 void procesarMensaje(String msg);
 void setState(State s);
 void leerLimites();
-bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2);
+bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2, int amp1, int amp2);
 void leerSerialNoBloqueante();
 void resetPID();
 
@@ -219,6 +227,7 @@ void setup() {
   // Servos
   MG995_Servo.attach(Servo_PWM);
   MG995_Servo.write(0);
+  MG995_Servo.detach();
   
   delay(100);
   cr_touch.attach(CRTouch_Control);
@@ -247,9 +256,6 @@ void setup() {
 void loop() {
   leerSerialNoBloqueante();
 
-  // Serial.print("M1: "); Serial.print(myEnc1.read()/COUNTS_PER_DEGREE1-45);
-  // Serial.print(",  M2: "); Serial.println(155-myEnc2.read()/COUNTS_PER_DEGREE2);
-
   switch (state) {
   case INICIO:
     flag_servo_listo = false;
@@ -260,11 +266,6 @@ void loop() {
     enable_step = false;
     flag_comando_recibido = false;
     leerLimites();
-
-    if (digitalRead(limite_lateral2)){
-      Serial.println("Limite 2 pulsado");
-    }
-    
 
     if (digitalRead(boton_mover)){
         setState(CENTRANDO);
@@ -318,6 +319,7 @@ void loop() {
         } else {
           ST.motor(canalM1, 0);
           myEnc1.write(0); 
+
           homing_sub_state = HOME_M2_FIND;
         }
         break;
@@ -329,8 +331,8 @@ void loop() {
           ST.motor(canalM2, 0);
           myEnc2.write(0); 
           // Configurar pose conocida
-          angulo_objetivo1 = 60;//45.0;
-          angulo_objetivo2 = 50;//155.0;      
+          angulo_objetivo1 = 45.0;
+          angulo_objetivo2 = 155.0;       
           
           resetPID(); 
           homing_sub_state = HOME_CENTRAR;
@@ -342,6 +344,8 @@ void loop() {
         break;
 
       case HOME_CENTRAR:
+      amplificador1 = 1500;
+      amplificador2 = 1500;
         if (flag_detener || digitalRead(limite_lateral2) ){ 
           setState(STOP); 
           lcd.clear();
@@ -349,9 +353,9 @@ void loop() {
           lcd.print("DETENER");  
         }
 
-        if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2)){
-            resetPID(); 
-            homing_sub_state = HOME_DONE;
+        if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel2, amplificador1, amplificador2)){
+           resetPID(); 
+           homing_sub_state = HOME_DONE;
         }
         break;
 
@@ -382,14 +386,13 @@ void loop() {
       lcd.print("MOVIENDOSE"); 
       setState(MOVIENDOSE);
     } 
-    
-    // if (digitalRead(boton_mover) == HIGH) {
-    
-    // }  
     break;
 
   case MOVIENDOSE:
     leerLimites();
+
+    amplificador1 = 1500;
+    amplificador2 = 1500;
 
     if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
       setState(STOP); 
@@ -398,15 +401,10 @@ void loop() {
       lcd.print("DETENER");  
     }
 
-    if (!flag_servo_listo){
-        MG995_Servo.write(45);
-        flag_servo_listo = true;
-    } 
-
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel1)){
-      setState(RECOGER_PAPA);
+    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, limit_vel1, limit_vel1, amplificador1, amplificador2)){
+      setState(ESPERAR);
       lcd.clear();
-      lcd.print("EN POSICION");
+      lcd.print("ESPERAR");
     }
     break;
 
@@ -433,7 +431,7 @@ void loop() {
         digitalWrite(bomba, HIGH);
         
         if (!flag_bolsa){
-          pasos_restantes = 200; 
+          pasos_restantes = 220; 
           enable_step = true;
           flag_bolsa = true;
         }else{
@@ -441,13 +439,13 @@ void loop() {
             setState(SUBIENDO_CON_PAPA);
             lcd.clear();
             lcd.print("SUBIENDO");
-            delay(100);    
+            delay(150);    
           }
         }
       }
     } else {
       enable_step = false;
-      setState(CENTRANDO); 
+      setState(INICIO); 
     }
     break;
 
@@ -461,45 +459,99 @@ void loop() {
       if (pasos_restantes <= 0) {
           enable_step = false;
           
-          int safe_index = counter_papas % NUM_PASOS;           
+          safe_index = counter_papas % NUM_PASOS;          
           angulo_objetivo1 = coordenadas_caja[safe_index].m1;
-          angulo_objetivo2 = coordenadas_caja[safe_index].m2;
+          // SOLO Movemos M1 en la etapa 1
           
           resetPID();
-          setState(SOLTAR_PAPA); 
+          setState(SOLTAR_PAPA_1); 
           lcd.clear();
-          lcd.print("YENDO A CAJA");
+          lcd.print("YENDO A ANGULO M1");
           lcd.setCursor(0, 1);
           lcd.print("POS: "); lcd.print(safe_index);
           delay(500);
       }
       break;
-  
-  case SOLTAR_PAPA:
-    int l1_soltar, l2_soltar;
+
+  case SOLTAR_PAPA_1:
+    leerLimites(); // SEGURIDAD AGREGADA
+    if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
+      setState(STOP); 
+    }
+
+    amplificador1 = 1500;
+    amplificador2 = 1500;
     if (flag_bolsa) {
-        l1_soltar = (int)(limit_vel1 / 1.5); 
-        l2_soltar = (int)(limit_vel2 / 2.0);  
-    } else {
+        l1_soltar = (int)(limit_vel1 / 1.0); 
+        l2_soltar = (int)(limit_vel2 / 2.3);  
+    }else {
         l1_soltar = limit_vel1;
         l2_soltar = limit_vel2;
     }
-    
-    if (controlPID(kp1, ki1, kd1, kp2, ki2, kd2, l1_soltar, l2_soltar)){
-      digitalWrite(bomba, LOW);
-      flag_bolsa = false;
-      counter_papas++;
-      cr_touch.write(90); // Sonda arriba
+
+    if (controlPID(kp1_papa, ki1_papa, kd1_papa, kp2_papa, ki2_papa, kd2_papa, l1_soltar, l2_soltar, amplificador1, amplificador2)){
+      resetPID();
+      angulo_objetivo2 = coordenadas_caja[safe_index].m2; // Ahora preparamos M2
+      setState(SOLTAR_PAPA_2); 
+      lcd.clear();
+      lcd.print("YENDO A ANGULO M2");
+      lcd.setCursor(0, 1);
+      lcd.print("POS: "); lcd.print(safe_index);
       delay(50);
-      cr_touch.write(160);  
+    }
+  break;
+
+  case SOLTAR_PAPA_2:
+    leerLimites(); // SEGURIDAD AGREGADA
+    if (flag_detener || digitalRead(limite_lateral1) || digitalRead(limite_lateral2)) {
+      setState(STOP); 
+    }
+
+    if (controlPID(kp1_papa, ki1_papa, kd1_papa, kp2_papa, ki2_papa, kd2_papa, l1_soltar, l2_soltar, amplificador1, amplificador2)){
+      resetPID();
+      setState(BAJAR_PAPA); 
+      pasos_restantes = 1500; 
+      enable_step = true;
+      lcd.clear();
+      lcd.print("SOLTANDO...");
       delay(500);
-      cr_touch.write(10); // Desplegar
-      
-      if(counter_papas < max_papas){
-        setState(INICIO); 
-      } else{
-        setState(FIN_RUTINA);
-      }
+      MG995_Servo.attach(Servo_PWM);
+      MG995_Servo.write(angulo_objetivo_servo);
+      delay(50);
+    }
+  break;
+  
+  case BAJAR_PAPA:
+    leerLimites();
+
+    if (!flag_limite_inferior && enable_step) {     
+      digitalWrite(DIR, LOW); 
+      // enable_step = true;
+    }else {
+      enable_step = false;
+      setState(SOLTAR_PAPA); 
+    }
+
+  break;
+  case SOLTAR_PAPA:
+    counter_papas++;
+    flag_bolsa = false;
+
+    // Acciones físicas de soltar
+    cr_touch.write(90); // Sonda arriba
+    delay(50);
+    cr_touch.write(160);  
+    delay(500);
+    cr_touch.write(10); // Desplegar
+    digitalWrite(bomba, LOW);
+    
+    if(counter_papas < max_papas){
+      // EFICIENCIA: Volver a esperar orden en lugar de recalibrar
+      setState(INICIO); 
+      lcd.clear();
+      lcd.print("LISTO SIGUIENTE");
+    } else{
+      setState(FIN_RUTINA);
     }
     break;
 
@@ -596,6 +648,7 @@ void procesarMensaje(String msg) {
       }
     }
 
+    // Transformación de coordenadas del usuario
     next_M1 = tempM1 + 45; 
     next_M2 = 155 - tempM2;
     next_S = tempS;
@@ -620,7 +673,7 @@ void resetPID() {
   counter_window1 = 0;
   ki_actual1 = ki1;
 
-  // Reset Ki dinamico M2 (AGREGADO)
+  // Reset Ki dinamico M2
   counter_window2 = 0;
   ki_actual2 = ki2;
   
@@ -628,7 +681,7 @@ void resetPID() {
 }
 
 // === PID OPTIMIZADO CON KI DINÁMICO DOBLE ===
-bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2) {
+bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int lim1, int lim2, int amp1, int amp2) {
   
   if (micros() - time_ant_pid < Period_PID) return false; 
   
@@ -654,7 +707,7 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   if (abs(error_pid1) < window_error1 && abs(error_pid1) > 1.0) {
     counter_window1++;
     if (counter_window1 >= window_length1){
-      ki_actual1 = 1500.0 * i1; 
+      ki_actual1 = amp1 * i1; 
     }
   } else {
     counter_window1 = 0; 
@@ -667,7 +720,7 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   if (abs(error_pid2) < window_error2 && abs(error_pid2) > 1.0) {
     counter_window2++;
     if (counter_window2 >= window_length2){
-      ki_actual2 = 1500.0 * i2; 
+      ki_actual2 = amp2 * i2; 
     }
   } else {
     counter_window2 = 0; 
@@ -712,7 +765,6 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
       if (abs(derivative1) < 5.0 && abs(derivative2) < 5.0) {
           ST.motor(canalM1, 0);
           ST.motor(canalM2, 0);
-          // NO reseteamos PID aquí dentro para permitir ajustes finos si se sale un poco
           return true; // LLegó
       }
   }
@@ -720,7 +772,6 @@ bool controlPID(float p1, float i1, float d1, float p2, float i2, float d2, int 
   return false; 
 }
 
-// === IMPLEMENTACIÓN FALTANTE DE setState ===
 void setState(State s) {
   if (state != s) {
     lastState = state;
