@@ -40,7 +40,7 @@ class BagCoordTransNode(Node):
         self.desp_y = 0#- 100.0 # 10 cm
 
         # FACTORES DE CORRECCION
-        self.K_DISTORTION = 2.1553e-5
+        self.K_DISTORTION = 2.155e-5
 
         # --- 2. CONFIGURACIÓN DE EJES (LA CLAVE DEL PROBLEMA) ---
         # Cambia estos True/False observando los resultados
@@ -85,7 +85,7 @@ class BagCoordTransNode(Node):
             v_sin_dist = v_centered * radial_factor
 
             # Correccion de paralaje
-            factor_h = (self.ALTURA_CAMARA_MM - self.ALTURA_PAPA_MM) / self.ALTURA_CAMARA_MM
+            factor_h = 1.2 #(self.ALTURA_CAMARA_MM - self.ALTURA_PAPA_MM) / self.ALTURA_CAMARA_MM
 
             u_correct = u_sin_dist * factor_h
             v_correct = v_sin_dist * factor_h
