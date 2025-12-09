@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Nodo ROBUSTO de Transformación de Coordenadas (Imagen -> Robot SCARA)
+Nodo de Transformación de Coordenadas (Imagen -> Robot SCARA)
 Permite inversión de ejes, rotación y escalado preciso.
 """
 
