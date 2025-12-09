@@ -81,18 +81,19 @@ class InvKinematicsNode(Node):
 
     def draw_robot_arm(self, q1_rad, q2_rad, target_x, target_y):
         """
-        Dibuja el esqueleto del robot basado en los ángulos calculados
+        Dibuja el esqueleto del robot basado en los angulos calculados
+        para visualizacion
         """
         # Crear lienzo negro
         canvas = np.zeros((self.map_h, self.map_w, 3), dtype=np.uint8)
 
-        # --- 1. Calcular posición del CODO (Forward Kinematics parcial) ---
+        # --- 1. Calcular posicion del CODO (Forward Kinematics parcial) ---
         # x_codo = L1 * cos(q1)
         # y_codo = L1 * sin(q1)
         elbow_x_mm = self.largo_1 * math.cos(q1_rad)
         elbow_y_mm = self.largo_1 * math.sin(q1_rad)
 
-        # --- 2. Calcular posición de la MUÑECA (FK total) ---
+        # --- 2. Calcular posicion de la MUÑECA (FK total) ---
         # x_muneca = x_codo + L2 * cos(q1 + q2)
         # y_muneca = y_codo + L2 * sin(q1 + q2)
         wrist_x_mm = elbow_x_mm + self.largo_2 * math.cos(q1_rad + q2_rad)
@@ -155,52 +156,41 @@ class InvKinematicsNode(Node):
         """
         while not self.stop_event.is_set():
             try:
-                # 1. Obtener coordenadas relativas a la CAMARA
-                # (Asumo que 'coords' viene en milímetros desde tu nodo de visión.
-                #  Si viene en pixeles, debes multiplicar por tu factor de escala antes)
                 coords_camara = self.bag_coord_q.get_nowait()
                 x_cam_trans = coords_camara[0]
                 y_cam_trans = coords_camara[1]
                 
-                # Debug: Ver si la coordenada tiene sentido
                 # self.get_logger().info(f"Cam: ({x_cam_trans}, {y_cam_trans})")
+                # 3. CALCULO DE CINEMATICA INVERSA 
 
-                # ---------------------------------------------------------
-                # 3. CÁLCULO DE CINEMÁTICA INVERSA 
-                # ---------------------------------------------------------
-                
                 h = np.sqrt(x_cam_trans**2 + y_cam_trans**2)
 
-                # Verificación de alcance
+                # Verificacion de alcance
                 if h > self.max_reach or h < abs(self.largo_1 - self.largo_2):
                     self.get_logger().warning(f'Fuera de rango. Dist: {h:.1f}')
-                    # Igual dibujamos donde está el objetivo aunque no lleguemos
+                    # Igual dibujamos donde esta el objetivo aunque no lleguemos
                     try:
                         self.draw_robot_arm(0, 0, x_cam_trans, y_cam_trans)
                     except: pass
                     continue
 
-                # --- Q2 (Codo) ---
-                # CORRECCIÓN: **2 en lugar de *2
+                # --- Q2 ---
                 numerador = self.largo_1**2 + self.largo_2**2 - h**2
                 denominador = 2 * self.largo_1 * self.largo_2
                 
                 cos_q2_int = numerador / denominador
-                cos_q2_int = np.clip(cos_q2_int, -1.0, 1.0) # Evitar errores numéricos
+                cos_q2_int = np.clip(cos_q2_int, -1.0, 1.0) # Evitar errores numericos
                 
                 q2_interno = np.arccos(cos_q2_int)
                 q2 = np.pi - q2_interno 
-                # NOTA: Si el codo dobla al revés, prueba: q2 = -(np.pi - q2_interno)
 
-                # --- Q1 (Hombro) ---
-                # CORRECCIÓN 2: Usar arctan2 para respetar cuadrantes
+                # --- Q1 ---
                 gamma = np.arctan2(y_cam_trans, x_cam_trans) 
 
-                # Ley de cosenos para beta (ángulo interno del triángulo base-hombro-muñeca)
+                # Ley de cosenos para beta
                 if h == 0:
                     continue
 
-                # CORRECCIÓN: **2 otra vez
                 num_beta = self.largo_1**2 + h**2 - self.largo_2**2
                 den_beta = 2 * self.largo_1 * h
                 
@@ -210,26 +200,17 @@ class InvKinematicsNode(Node):
 
                 q1 = gamma - beta
 
-                # Ajuste de origen de los motores (Calibration offset)
                 q1_final = q1 + self.origen_base
                 q2_final = q2 + self.origen_eslabon
-                
-                # Convertir a Grados para verificar limites (o si tus limites son radianes, dejalo asi)
-                # Asumo que tus limites self.ang_desp_max_base están en la misma unidad que q1/q2
-
-                # ... (Tus verificaciones de limites aqui) ...
 
                 # Enviar
                 msg = Int16MultiArray()
-                # Convertir radianes a grados para el Arduino? 
-                # Ojo: np.arccos devuelve radianes. Si tu arduino espera grados:
                 deg_q1 = np.degrees(q1_final)
                 deg_q2 = np.degrees(q2_final)
                 
                 data = [int(round(deg_q1)), int(round(deg_q2))]
                 msg.data = data
                 self.publisher.publish(msg)
-                # 4. DIBUJAR BRAZO
                 # try:
                 #     self.draw_robot_arm(q1_final, q2_final, x_cam_trans, y_cam_trans)
                 # except Exception as e:
